@@ -1,5 +1,6 @@
 module Main where
 import Data.Maybe
+import qualified Data.Set as Set
 
 ----------------------------------
 --          DATASTRUCTS         --
@@ -11,7 +12,7 @@ data Expr = Con Int
 	  | Mul Expr Expr
 	  | Div Expr Expr
 	  | Double Double
-     deriving (Eq, Read)
+     deriving (Eq, Read, Ord)
 -- Zipper data type
 data ZExpr = AddL ZExpr Expr
 	   | AddR ZExpr Expr
@@ -121,6 +122,9 @@ expr3 = Mul (Add (Con 2) (Con 3)) (Add (Con 5) (Con 7))
 expr4 :: Expr
 expr4 = Add (Con 1) (Add (Con 2) (Con 3))
 
+expr5 :: Expr
+expr5 = Mul (Add (Con 32) (Sub (Con 5) (Add (Con 2) (Con 3)))) (Con 2)
+
 ----------------------------------
 --          RULES               --
 ----------------------------------
@@ -145,15 +149,15 @@ commR (Add x y)         = Just $ Add y x
 commR (Mul x y)         = Just $ Mul y x
 commR _                 = Nothing
 
-commbR :: Rule
-commbR (Add x (Add y z)) = Just $ Add (Add x z) y
-commbR (Mul x (Mul y z)) = Just $ Mul (Mul x z) y
-commbR _                 = Nothing
+assocR :: Rule
+assocR (Add x (Add y z)) = Just $ Add (Add x y) z
+assocR (Mul x (Mul y z)) = Just $ Mul (Mul x y) z
+assocR _                 = Nothing
 
-commcR :: Rule
-commcR (Add x (Add y z)) = Just $ Add (Add y x) z
-commcR (Mul x (Mul y z)) = Just $ Mul (Mul y x) z
-commcR _                 = Nothing
+assocbR :: Rule
+assocbR (Add (Add x y) z) = Just $ Add x (Add y z)
+assocbR (Mul (Mul x y) z) = Just $ Mul x (Mul y z)
+assocbR _                 = Nothing
 
 fracR :: Rule
 fracR (Double x)        | nice      = Just $ Div (Con (n `div` diver)) (Con (10000 `div` diver))
@@ -181,6 +185,13 @@ subExpr ctx = case left of
 		   _       -> [fromJust left, fromJust right]
 	where left  = goLeft  ctx
 	      right = goRight ctx
+subExpr' ctx = case left of
+         Nothing -> []
+         _       -> [leftU, rightU] ++ subExpr' leftU ++ subExpr' rightU 
+   where left   = goLeft  ctx
+         right  = goRight ctx
+         leftU  = fromJust left
+         rightU = fromJust right
 
 
 subExprR :: [Rule] -> Ctx -> [Ctx]
@@ -195,8 +206,23 @@ subExprR rs e = layerExprs ++ upExprs ++ concatMap (subExprR rs) (subExprs ++ ri
 	      rightUpExpr      = map rightExpr leftSidedUpExpr
 	      -- Compute the sub-expressions of the expression and transformed expression (next-layer)
 	      subExprs         = concatMap subExpr layerExprs
-     
-	      
+
+
+	     
+{-	     
+subExprS :: [Rule] -> Ctx -> [[Ctx]]
+subExprS rs e = transformedExpr : concatMap (subExprS rs) transformedExpr
+    where transformedExpr = concatMap (\e -> concatMap (\r -> r e) (map apply rs)) (e : subExpr' e)
+    -}  
+
+subExprS :: [Rule] -> Set.Set Expr -> [Expr] -> [[Ctx]]
+subExprS rs set []     = []
+subExprS rs set xs     = let newSet = Set.union (Set.fromList nextLayer) set
+                         in  (map toCtx nextLayer) : subExprS rs newSet nextLayer
+    where transformedExpr = concatMap (\e -> concatMap (\r -> r e) (map apply rs)) (ctxXS ++ concatMap subExpr' ctxXS)
+          nextLayer       = Set.toList (Set.difference (Set.fromList (map getFullExpr transformedExpr)) set)
+          ctxXS           = map toCtx xs
+   
 -- Utility funcs
 leftSided (_, (AddL _ _)) = True
 leftSided (_, (SubL _ _)) = True
@@ -221,7 +247,7 @@ step (e, ze) e' = (e', ze)
 findCtx :: Expr -> Expr -> Maybe Ctx
 findCtx expr lhs | null candidates  = Nothing
 		 | otherwise        = Just $ head candidates
-	where subs       = subExprR [distR, evalR, commR, commbR, commcR, fracR] $ toCtx expr
+	where subs       = subExprR [distR, evalR, commR, assocR, assocbR, fracR] $ toCtx expr
 	      candidates = filter (\(e,ze) -> e == lhs) subs
 
 
