@@ -52,9 +52,6 @@ eval (Double x) = x
 toCtx :: Expr -> Ctx
 toCtx e = (e, Top)
 
-getFocus :: Ctx -> Expr
-getFocus (e, _) = e
-
 goLeft :: Ctx -> Maybe Ctx
 goLeft (e, ze) = res e
 	where res (Add l r) = Just (l, AddL ze r)
@@ -136,13 +133,33 @@ distR (Mul x y) = split y x
 	      split (Div x y) e = Just (Div (Mul e x) y)
 	      split _ _         = Nothing
 distR _         = Nothing
-
-evalR :: Rule
-evalR (Con _)    = Nothing
-evalR (Double _) = Nothing
-evalR x          = Just $ (if integral then Con (round value) else Double value)
+{-
+Just $ (if integral then Con (round value) else Double value)
 	where value    = eval x
 	      integral = value == fromIntegral (round value)
+	      -}
+	      
+evalR :: Rule
+evalR (Add (Con x) (Con y))       = Just $ Con (x + y)
+evalR (Add (Con x) (Double y))    = Just $ Double (fromIntegral x + y)
+evalR (Add (Double x) (Con y))    = Just $ Double (x + fromIntegral y)
+evalR (Add (Double x) (Double y)) = depends (x + y)
+evalR (Mul (Con x) (Con y))       = Just $ Con (x * y)
+evalR (Mul (Con x) (Double y))    = depends (fromIntegral x * y)
+evalR (Mul (Double x) (Con y))    = depends (x * fromIntegral y)
+evalR (Mul (Double x) (Double y)) = depends (x * y)
+evalR (Sub (Con x) (Con y))       = Just $ Con (x - y)
+evalR (Sub (Con x) (Double y))    = Just $ Double (fromIntegral x - y)
+evalR (Sub (Double x) (Con y))    = Just $ Double (x - fromIntegral y)
+evalR (Sub (Double x) (Double y)) = depends (x - y)
+evalR (Div (Con x) (Con y))       = depends (fromIntegral x / fromIntegral y)
+evalR (Div (Con x) (Double y))    = depends (fromIntegral x / y)
+evalR (Div (Double x) (Con y))    = depends (x / fromIntegral y)
+evalR (Div (Double x) (Double y)) = depends (x / y)
+evalR _          = Nothing
+
+depends x = Just $ (if integral then Con (round x) else Double x)
+	where integral = x == fromIntegral (round x)
 
 commR :: Rule
 commR (Add x y)         = Just $ Add y x
@@ -181,59 +198,23 @@ apply r (e,ze) = case r e of
 ----------------------------------
 subExpr :: Ctx -> [Ctx]
 subExpr ctx = case left of
-		   Nothing -> []
-		   _       -> [fromJust left, fromJust right]
-	where left  = goLeft  ctx
-	      right = goRight ctx
-subExpr' ctx = case left of
          Nothing -> []
-         _       -> [leftU, rightU] ++ subExpr' leftU ++ subExpr' rightU 
+         _       -> [leftU, rightU] ++ subExpr leftU ++ subExpr rightU 
    where left   = goLeft  ctx
          right  = goRight ctx
          leftU  = fromJust left
          rightU = fromJust right
 
-
-subExprR :: [Rule] -> Ctx -> [Ctx]
-subExprR rs e = layerExprs ++ upExprs ++ concatMap (subExprR rs) (subExprs ++ rightUpExpr)
-	where -- Apply the rules and get the transformed expressions
-	      transformedExpr  = concatMap (\r -> r e) (map apply rs)
-	      -- The expressions for this layer, is e + all transformed expressions.
-	      layerExprs       = e : transformedExpr
-	      -- Go back upwards to add the injected transformed expressions.
-	      upExprs          = concatMap trailUp transformedExpr
-	      leftSidedUpExpr  = filter leftSided transformedExpr
-	      rightUpExpr      = map rightExpr leftSidedUpExpr
-	      -- Compute the sub-expressions of the expression and transformed expression (next-layer)
-	      subExprs         = concatMap subExpr layerExprs
-
-
-	     
-{-	     
-subExprS :: [Rule] -> Ctx -> [[Ctx]]
-subExprS rs e = transformedExpr : concatMap (subExprS rs) transformedExpr
-    where transformedExpr = concatMap (\e -> concatMap (\r -> r e) (map apply rs)) (e : subExpr' e)
-    -}  
-
-subExprS :: [Rule] -> Set.Set Expr -> [Expr] -> [[Ctx]]
+-- Computes the top-level expressions possible per step without duplicates.
+subExprS :: [Rule] -> Set.Set Expr -> [Expr] -> [[Expr]]
 subExprS rs set []     = []
-subExprS rs set xs     = let newSet = Set.union (Set.fromList nextLayer) set
-                         in  (map toCtx nextLayer) : subExprS rs newSet nextLayer
-    where transformedExpr = concatMap (\e -> concatMap (\r -> r e) (map apply rs)) (ctxXS ++ concatMap subExpr' ctxXS)
-          nextLayer       = Set.toList (Set.difference (Set.fromList (map getFullExpr transformedExpr)) set)
-          ctxXS           = map toCtx xs
-   
--- Utility funcs
-leftSided (_, (AddL _ _)) = True
-leftSided (_, (SubL _ _)) = True
-leftSided (_, (MulL _ _)) = True
-leftSided _               = False
-
-rightExpr (e, (AddL ze e')) = (e', (AddR ze e))
-rightExpr (e, (SubL ze e')) = (e', (SubR ze e))
-rightExpr (e, (MulL ze e')) = (e', (MulR ze e))
-rightExpr _                 = error "Has no right expression!"
-	      
+subExprS rs set xs     = let newSet = Set.union nextLayer set
+			 in  nextLayerL : subExprS rs newSet nextLayerL
+    where subs            = ctxXS ++ concatMap subExpr ctxXS
+	  transformedExpr = concatMap (\e -> concatMap (\r -> r e) (map apply rs)) subs
+          nextLayer       = Set.difference (Set.fromList (map getFullExpr transformedExpr)) set
+          nextLayerL      = Set.toList nextLayer
+          ctxXS           = map toCtx xs   
 
 ----------------------------------
 --          STEPS               --
@@ -247,7 +228,8 @@ step (e, ze) e' = (e', ze)
 findCtx :: Expr -> Expr -> Maybe Ctx
 findCtx expr lhs | null candidates  = Nothing
 		 | otherwise        = Just $ head candidates
-	where subs       = subExprR [distR, evalR, commR, assocR, assocbR, fracR] $ toCtx expr
+	where tops       = map toCtx $ concat $ subExprS [distR, evalR, commR] Set.empty [expr]
+	      subs       = tops ++ concatMap subExpr tops
 	      candidates = filter (\(e,ze) -> e == lhs) subs
 
 
@@ -266,3 +248,38 @@ performHalfStep e lhs = case ctx of
 				Nothing -> error "No matching sub-expression"
 				_       -> getFullExpr $ fromJust ctx
 	where ctx        = findCtx e lhs
+
+
+
+----------------------------------
+--          TEST               --
+----------------------------------
+
+type Program = [(Expr, Expr, Bool)]
+
+n_m :: Program
+n_m = [(Div (Con 32) (Con 4), Con 8,  True),
+       (Sub (Con 32) (Con 8), Con 24, True),
+       (Div (Con 24) (Con 4), Con 6,  True),
+       (Sub (Con 24) (Con 6), Con 18, True)]
+n_m' :: Program
+n_m' = [(Mul (Con 32) (Double 0.25), Con 8,  True),
+        (Sub (Con 32) (Con 8),       Con 24, True),
+        (Mul (Con 24) (Double 0.25), Con 6,  True),
+        (Sub (Con 24) (Con 6),       Con 18, True)]
+n_p :: Program
+n_p = [(Con 32, Con 0, False),
+       (Con 24, Con 0, False),
+       (Con 18, Con 0, False)]
+
+process :: Expr -> Program -> IO ()
+process e []                   = putStrLn ("Done: " ++ show e)
+process e ((lhs,rhs,False):xs) = do putStrLn ("Step: " ++ show lhs)
+				    let e' = performHalfStep e lhs
+				    putStrLn ("\t" ++ show e')
+				    process e' xs
+process e ((lhs,rhs,True):xs)  = do putStrLn ("Step: " ++ show lhs ++ " = " ++ show rhs)
+				    let e' = performStep e (lhs, rhs)
+	                            putStrLn ("\t" ++ show e')
+				    process e' xs
+		  
