@@ -133,12 +133,7 @@ distR (Mul x y) = split y x
 	      split (Div x y) e = Just (Div (Mul e x) y)
 	      split _ _         = Nothing
 distR _         = Nothing
-{-
-Just $ (if integral then Con (round value) else Double value)
-	where value    = eval x
-	      integral = value == fromIntegral (round value)
-	      -}
-	      
+      
 evalR :: Rule
 evalR (Add (Con x) (Con y))       = Just $ Con (x + y)
 evalR (Add (Con x) (Double y))    = Just $ Double (fromIntegral x + y)
@@ -228,7 +223,7 @@ step (e, ze) e' = (e', ze)
 findCtx :: Expr -> Expr -> Maybe Ctx
 findCtx expr lhs | null candidates  = Nothing
 		 | otherwise        = Just $ head candidates
-	where tops       = map toCtx $ concat $ subExprS [distR, evalR, commR] Set.empty [expr]
+	where tops       = map toCtx $ concat $ subExprS [distR, evalR, assocR, assocbR, fracR] Set.empty [expr]
 	      subs       = tops ++ concatMap subExpr tops
 	      candidates = filter (\(e,ze) -> e == lhs) subs
 
@@ -271,6 +266,13 @@ n_p :: Program
 n_p = [(Con 32, Con 0, False),
        (Con 24, Con 0, False),
        (Con 18, Con 0, False)]
+n_t :: Program
+n_t = [(Mul (Double 0.75) (Double 0.75), Con 0, False),
+       (Mul (Div (Con 3) (Con 4)) (Div (Con 3) (Con 4)), Div (Con 9) (Con 16), True),
+       (Mul (Div (Con 9) (Con 16)) (Con 32), Con 18, True)]
+n_t' = [(Mul (Double 0.75) (Double 0.75), Con 0, False),
+       (Mul (Div (Con 3) (Con 4)) (Div (Con 3) (Con 4)), Div (Con 9) (Con 16), True),
+       (Mul (Con 32) (Div (Con 9) (Con 16)), Con 18, True)]
 
 process :: Expr -> Program -> IO ()
 process e []                   = putStrLn ("Done: " ++ show e)
