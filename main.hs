@@ -272,22 +272,34 @@ n_t' = [Lhs  (Mul (Double 0.75) (Double 0.75)),
         Both (Mul (Div (Con 3) (Con 4)) (Div (Con 3) (Con 4))) (Div (Con 9) (Con 16)),
         Both (Mul (Con 32) (Div (Con 9) (Con 16))) (Con 18)]
 
-uitw1 :: Program
-uitw1 = [Both (Div (Con 32) (Con 4)) (Con 8),
+opdr1 = Mul (Con 32) (Mul sub sub)
+	where sub = Sub (Con 1) (Double 0.25)        
+        
+uitw1_1 :: Program
+uitw1_1 = [Both (Div (Con 32) (Con 4)) (Con 8),
 	 Both (Sub (Con 32) (Con 8)) (Con 24),
 	 Both (Div (Con 24) (Con 4)) (Con 6),
 	 Both (Sub (Con 24) (Con 6)) (Con 18)]
 
-uitw2 :: Program
-uitw2 = [Both (Div (Con 32) (Con 4)) (Con 8),
+uitw1_2 :: Program
+uitw1_2 = [Both (Div (Con 32) (Con 4)) (Con 8),
 	 Both (Sub (Con 32) (Con 8)) (Con 24),
 	 Lhs  (Con 18)]
 
-uitw3 :: Program
-uitw3 = [Both (Sub (Con 32) (Con 8)) (Con 24),
+uitw1_3 :: Program
+uitw1_3 = [Both (Sub (Con 32) (Con 8)) (Con 24),
 	 Both (Sub (Con 24) (Con 6)) (Con 18)]
 
-
+uitw1_4 :: Program
+uitw1_4 = [Both (Div (Con 32) (Con 4)) (Con 8),
+         Both (Div (Con 24) (Con 4)) (Con 6),
+         Both (Sub (Con 32) (Con 8)) (Con 24),
+         Both (Sub (Con 24) (Con 6)) (Con 18)]
+       
+uitw1_5 :: Program
+uitw1_5 = [Both (Mul (Con 32) (Mul (Double 0.75) (Double 0.75))) (Mul (Con 24) (Double 0.75)),
+         Both (Mul (Con 24) (Double 0.75)) (Con 18)]
+         
 -- Process function
 process :: Expr -> Program -> IO ()
 process e []             = putStrLn ("Done: " ++ show e)
