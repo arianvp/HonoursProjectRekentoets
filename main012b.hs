@@ -237,7 +237,7 @@ findCtx :: Expr -> Expr -> Maybe Ctx
 findCtx expr lhs | null candidates  = Nothing
 		 | otherwise        = Just $ head candidates
 	where subs       = subExprR [distR, evalR, commR, commbR, commcR, fracR] $ toCtx expr
-	      candidates = filter (\(e,ze) -> e == lhs) subs
+	      candidates = filter x(\(e,ze) -> e == lhs) subs
 
 
 type Equal = (Expr, Expr)
@@ -255,3 +255,38 @@ performHalfStep e lhs = case ctx of
 				Nothing -> error "No matching sub-expression"
 				_       -> getFullExpr $ fromJust ctx
 	where ctx        = findCtx e lhs
+
+-------------------------------------------------------------------	
+-----------VOORBEELD UITWERKINGEN VANAF HIER-----------------------
+-------------------------------------------------------------------
+	
+uitw1 :: [Step]
+uitw1 = [ Both (Div (Con 32) (Con 4), Con 8), Both (Sub (Con 32) (Con 8) , Con 24), Both (Div (Con 24) (Con 4), Con 6), Both (Sub (Con 24) (Con 6), Con 18)]
+
+uitw2 :: [Step]
+uitw2 = [ Both (Div (Con 32) (Con 4), Con 8), Both (Sub (Con 32) (Con 8), Con 24), Lhs (Con 18)]
+
+uitw3 :: [Step]
+uitw3 = [Both(Sub (Con 32) (Con 8), Con 24), Both (Sub (Con 24) (Con 6), Con 18)]
+
+
+-----VISSENKOM-------
+
+uitw4 :: [Step]
+uitw4 = [Both (Mul (Con 8) (Mul (Con 4) (Con 5)), Con 160),Both (Div (Con 160) (Con 5), Con 32)]
+
+-----FLESSEN---------
+
+uitw5 :: [Step]
+uitw5 = [Both (Div (Con 225) (Div (Con 3) (Con 4)),Mul (Con 225) (Div (Con 4) (Con 3))),
+		Both (Mul (Con 225) (Div (Con 4) (Con 3)),Div (Con 900) (Con 3)),
+		Both (Div (Con 900) (Con 3)),Con 300)]
+		
+uitw6 :: [Step --Fout--
+uitw6 = [Both (Div (Con 225) (Div (Con 3) (Con 4)),Mul (Con 225) (Div (Con 4) (Con 3))),
+		Both (Mul (Con 225) (Div (Con 4) (Con 3)),Div (Con 800) (Con 3)),
+		Both (Div (Con 800) (Con 3)),Con 266)]
+		
+-----OLIEBOLLEN--------
+uitw7 :: [Step]
+uitw7 = [Both (Mul (Con 300) (Div (Con 3) (Con 4))),Div (Con 900) (Con 4)) ,Both (Div (Con 900) (Con 4),Con 225)]	
