@@ -237,7 +237,7 @@ findCtx :: Expr -> Expr -> Maybe Ctx
 findCtx expr lhs | null candidates  = Nothing
 		 | otherwise        = Just $ head candidates
 	where subs       = subExprR [distR, evalR, commR, commbR, commcR, fracR] $ toCtx expr
-	      candidates = filter x(\(e,ze) -> e == lhs) subs
+	      candidates = filter (\(e,ze) -> e == lhs) subs
 
 
 type Equal = (Expr, Expr)
