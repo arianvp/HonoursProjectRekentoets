@@ -271,7 +271,8 @@ n_t = [Lhs  (Mul (Double 0.75) (Double 0.75)),
 n_t' = [Lhs  (Mul (Double 0.75) (Double 0.75)),
         Both (Mul (Div (Con 3) (Con 4)) (Div (Con 3) (Con 4))) (Div (Con 9) (Con 16)),
         Both (Mul (Con 32) (Div (Con 9) (Con 16))) (Con 18)]
-
+    
+        --Matroesjka exercise
 opdr1 = Mul (Con 32) (Mul sub sub)
 	where sub = Sub (Con 1) (Double 0.25)        
         
@@ -300,6 +301,7 @@ uitw1_5 :: Program
 uitw1_5 = [Both (Mul (Con 32) (Mul (Double 0.75) (Double 0.75))) (Mul (Con 24) (Double 0.75)),
          Both (Mul (Con 24) (Double 0.75)) (Con 18)]
 
+         --Chocolate exercise
 opdr2 = Mul (Div (Add (Sub (Con 11) (Con 2)) (Sub (Con 7) (Con 4))) (Add (Con 18) (Con 12))) (Con 100)    
         
 uitw2_1 :: Program
@@ -314,8 +316,65 @@ uitw2_2 = [Both (Add (Con 18) (Con 12)) (Con 30),
            Both (Sub (Con 11) (Con 2)) (Con 9),
            Lhs (Con 3),
            Both (Mul (Div (Con 12) (Con 30)) (Con 100)) (Con 40)]
+ 
+        --Wine exercise
+opdr3 = Div (Con 225) (Div (Con 3) (Con 4)) 
+
+uitw3_1 :: Program 
+uitw3_1 = [Both (Div (Con 225) (Div (Con 3) (Con 4))) (Mul (Con 225) (Div (Con 4) (Con 3))),
+           Both (Mul (Con 225) (Div (Con 4) (Con 3))) (Div (Con 900) (Con 3)),
+           Both (Div (Con 900) (Con 3)) (Con 300)]       
            
-opdr3 =           
+        --Stamp exercise
+opdr4 = Sub (Div (Double 4.74) (Con 6)) (Double 0.25)
+
+uitw4_1 :: Program 
+uitw4_1 = [Both (Div (Double 4.74) (Con 6)) (Double 0.79),
+           Both (Sub (Double 0.79) (Double 0.25)) (Double 0.54)]       
+
+uitw4_2 :: Program 
+uitw4_2 = [Both (Mul (Double 0.25) (Con 6)) (Double 1.50),
+           Both (Sub (Double 4.74) (Double 1.50)) (Double 3.24),
+           Both (Div (Double 3.24) (Con 6)) (Double 0.54)]       
+           
+        --Work pay exercise
+opdr5 = Mul (Add mado vr) (Double 4.80)
+    where mado = Mul (Sub (Sub (Double 16.5) (Double 8.0)) (Sub (Double 12.75) (Double 12.0))) (Con 4)
+          vr   = Sub (Sub (Double 14.0) (Double 7.0)) (Sub (Double 12.0) (Double 11.5))
+          
+uitw5_1 :: Program 
+uitw5_1 = [Both (Sub (Sub (Add (Mul (Double 8.5) (Con 4)) (Con 7)) (Mul (Con 4) (Double 0.75))) (Double 0.5)) (Sub (Sub (Add (Double 34.0) (Con 7)) (Double 3.0)) (Double 0.5)),
+           Both (Sub (Sub (Add (Double 34.0) (Con 7)) (Double 3.0)) (Double 0.5)) (Double 37.5),
+           Both (Mul (Double 37.5) (Double 4.80)) (Double 180.0)]       
+           
+           
+uitw5_2 :: Program 
+uitw5_2 = [Lhs (Double 8.5),
+           Lhs (Double 0.75),
+           Both (Mul (Con 4) (Double 8.5)) (Double 34.0),
+           Both (Sub (Double 34.0) (Con 3)) (Double 31.0),
+           Both (Add (Double 31.0) (Con 7)) (Double 38.0),
+           Both (Sub (Double 38.0) (Double 0.5)) (Double 37.5),
+           Both (Add (Double 32.0) (Con 2)) (Double 34.0),
+           Both (Mul (Double 37.5) (Double 4.80)) (Double 180.0)]       
+
+uitw5_3 :: Program 
+uitw5_3 = [Lhs (Double 8.5),
+           Lhs (Double 0.75),
+           Both (Mul (Con 4) (Double 8.5)) (Add (Double 32.0) (Con 2)),
+           Both (Add (Double 32.0) (Con 2)) (Double 34.0),
+           Both (Sub (Double 34.0) (Con 3)) (Double 31.0),
+           Both (Add (Double 31.0) (Con 7)) (Double 38.0),
+           Both (Sub (Double 38.0) (Double 0.5)) (Double 37.5),
+           Both (Add (Double 32.0) (Con 2)) (Double 34.0),
+           Both (Mul (Double 37.5) (Double 4.80)) (Double 180.0)]   
+           
+        --Recipe exercise
+opdr6 = Mul (Div (Con 600) (Con 800)) (Con 300)   
+
+uitw6_1 :: Program
+uitw6_1 = [Both (Div (Con 600) (Con 800)) (Div (Con 3) (Con 4)),
+           Both (Mul (Con 300) (Div (Con 3) (Con 4))) (Con 225)]
            
 -- Process function
 process :: Expr -> Program -> IO ()
