@@ -1,0 +1,38 @@
+Je hebt een kernexpressie die alle elementen van een goed antwoord bevat
+
+
+We hebben een stap tussen twee regels. We hebben herschrijfregels. We hebben gemaakte substituties. 
+
+
+>>Welke strategie zou ik op zo’n opgave hebben?
+
+
+32 * (1 - 0.25)^2
+
+
+
+Als we gaan substitueren komen we uiteindelijk op blah. 
+
+
+
+Hoe differentieer je een normale stap van een foute stap?
+
+Je hebt een expressie plus een context van subtituties. En een nieuwe expressie (de stap). Kan ik vanuit de oude expressie uitkomen op de nieuwe expressie met de substitutie regels en de rekenregels gedefinieerd in de strategie.
+
+
+
+
+32 * 3 = 96
+96 / 4 = 24      deze twee stappen samen is dat goed? is dat fout? 
+
+
+
+Gevallen waar bepaalde expressie overeenkomen.         Als er meerdere plekken zijn om je substitutes in te vullen?  
+
+
+
+
+1)	antwoorden checken -> substitueteren en afsplitsen
+2)	uitwerkingen beoordelen met strategien
+3)	fouten herkennen
+
