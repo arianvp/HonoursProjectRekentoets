@@ -272,6 +272,23 @@ n_t' = [Lhs  (Mul (Double 0.75) (Double 0.75)),
         Both (Mul (Div (Con 3) (Con 4)) (Div (Con 3) (Con 4))) (Div (Con 9) (Con 16)),
         Both (Mul (Con 32) (Div (Con 9) (Con 16))) (Con 18)]
 
+uitw1 :: Program
+uitw1 = [Both (Div (Con 32) (Con 4)) (Con 8),
+	 Both (Sub (Con 32) (Con 8)) (Con 24),
+	 Both (Div (Con 24) (Con 4)) (Con 6),
+	 Both (Sub (Con 24) (Con 6)) (Con 18)]
+
+uitw2 :: Program
+uitw2 = [Both (Div (Con 32) (Con 4)) (Con 8),
+	 Both (Sub (Con 32) (Con 8)) (Con 24),
+	 Lhs  (Con 18)]
+
+uitw3 :: Program
+uitw3 = [Both (Sub (Con 32) (Con 8)) (Con 24),
+	 Both (Sub (Con 24) (Con 6)) (Con 18)]
+
+
+-- Process function
 process :: Expr -> Program -> IO ()
 process e []             = putStrLn ("Done: " ++ show e)
 process e ((Lhs lhs):xs) = do putStrLn ("Step: " ++ show lhs)
