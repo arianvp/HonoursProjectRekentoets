@@ -275,7 +275,9 @@ n_t' = [Lhs  (Mul (Double 0.75) (Double 0.75)),
         --Matroesjka exercise
 opdr1 = Mul (Con 32) (Mul sub sub)
 	where sub = Sub (Con 1) (Double 0.25)        
-        
+
+ex1cor = (opdr1, [uitw1_1, uitw1_2, uitw1_3, uitw1_5])
+    
 uitw1_1 :: Program
 uitw1_1 = [Both (Div (Con 32) (Con 4)) (Con 8),
 	 Both (Sub (Con 32) (Con 8)) (Con 24),
@@ -300,9 +302,13 @@ uitw1_4 = [Both (Div (Con 32) (Con 4)) (Con 8),
 uitw1_5 :: Program
 uitw1_5 = [Both (Mul (Con 32) (Mul (Double 0.75) (Double 0.75))) (Mul (Con 24) (Double 0.75)),
          Both (Mul (Con 24) (Double 0.75)) (Con 18)]
+         
+
 
          --Chocolate exercise
 opdr2 = Mul (Div (Add (Sub (Con 11) (Con 2)) (Sub (Con 7) (Con 4))) (Add (Con 18) (Con 12))) (Con 100)    
+
+ex2cor = (opdr2, [])
         
 uitw2_1 :: Program
 uitw2_1 = [Lhs (Con 9),
@@ -320,6 +326,8 @@ uitw2_2 = [Both (Add (Con 18) (Con 12)) (Con 30),
         --Wine exercise
 opdr3 = Div (Con 225) (Div (Con 3) (Con 4)) 
 
+ex3cor = (opdr3, [])
+
 uitw3_1 :: Program 
 uitw3_1 = [Both (Div (Con 225) (Div (Con 3) (Con 4))) (Mul (Con 225) (Div (Con 4) (Con 3))),
            Both (Mul (Con 225) (Div (Con 4) (Con 3))) (Div (Con 900) (Con 3)),
@@ -327,6 +335,8 @@ uitw3_1 = [Both (Div (Con 225) (Div (Con 3) (Con 4))) (Mul (Con 225) (Div (Con 4
            
         --Stamp exercise
 opdr4 = Sub (Div (Double 4.74) (Con 6)) (Double 0.25)
+
+ex4cor = (opdr4, [uitw4_1])
 
 uitw4_1 :: Program 
 uitw4_1 = [Both (Div (Double 4.74) (Con 6)) (Double 0.79),
@@ -341,6 +351,8 @@ uitw4_2 = [Both (Mul (Double 0.25) (Con 6)) (Double 1.50),
 opdr5 = Mul (Add mado vr) (Double 4.80)
     where mado = Mul (Sub (Sub (Double 16.5) (Double 8.0)) (Sub (Double 12.75) (Double 12.0))) (Con 4)
           vr   = Sub (Sub (Double 14.0) (Double 7.0)) (Sub (Double 12.0) (Double 11.5))
+
+ex5cor = (opdr5, [])
           
 uitw5_1 :: Program 
 uitw5_1 = [Both (Sub (Sub (Add (Mul (Double 8.5) (Con 4)) (Con 7)) (Mul (Con 4) (Double 0.75))) (Double 0.5)) (Sub (Sub (Add (Double 34.0) (Con 7)) (Double 3.0)) (Double 0.5)),
@@ -372,10 +384,13 @@ uitw5_3 = [Lhs (Double 8.5),
         --Recipe exercise
 opdr6 = Mul (Div (Con 600) (Con 800)) (Con 300)   
 
+ex6cor = (opdr6, [])
+
 uitw6_1 :: Program
 uitw6_1 = [Both (Div (Con 600) (Con 800)) (Div (Con 3) (Con 4)),
            Both (Mul (Con 300) (Div (Con 3) (Con 4))) (Con 225)]
-           
+
+
 -- Process function
 process :: Expr -> Program -> IO ()
 process e []             = putStrLn ("Done: " ++ show e)
@@ -387,4 +402,17 @@ process e ((Both lhs rhs):xs)  = do putStrLn ("Step: " ++ show lhs ++ " = " ++ s
 				    let e' = performStep e (lhs, rhs)
 	                            putStrLn ("\t" ++ show e')
 				    process e' xs
-		  
+
+process' opdr uitws = do putStrLn (show opdr)
+                         putStrLn (replicate 80 '-')
+                         mapM_ douitw uitws
+    where douitw e = do process opdr e
+                        putStrLn ("\n - \n")
+                    
+processmany :: [(Expr, [Program])] -> IO()
+processmany exs = mapM_ doex exs
+    where doex (opdr, uitw) = do putStrLn (replicate 80 '-')
+                                 process' opdr uitw
+                                 putStrLn ("\n")
+                        
+correct = processmany [ex1cor, ex2cor, ex3cor, ex4cor, ex5cor, ex6cor]    
