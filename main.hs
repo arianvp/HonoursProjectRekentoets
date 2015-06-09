@@ -299,7 +299,24 @@ uitw1_4 = [Both (Div (Con 32) (Con 4)) (Con 8),
 uitw1_5 :: Program
 uitw1_5 = [Both (Mul (Con 32) (Mul (Double 0.75) (Double 0.75))) (Mul (Con 24) (Double 0.75)),
          Both (Mul (Con 24) (Double 0.75)) (Con 18)]
-         
+
+opdr2 = Mul (Div (Add (Sub (Con 11) (Con 2)) (Sub (Con 7) (Con 4))) (Add (Con 18) (Con 12))) (Con 100)    
+        
+uitw2_1 :: Program
+uitw2_1 = [Lhs (Con 9),
+           Lhs (Con 3),
+           Lhs (Con 12),
+           Lhs (Con 30),
+           Both (Mul (Div (Con 12) (Con 30)) (Con 100)) (Con 40)]
+
+uitw2_2 :: Program
+uitw2_2 = [Both (Add (Con 18) (Con 12)) (Con 30),
+           Both (Sub (Con 11) (Con 2)) (Con 9),
+           Lhs (Con 3),
+           Both (Mul (Div (Con 12) (Con 30)) (Con 100)) (Con 40)]
+           
+opdr3 =           
+           
 -- Process function
 process :: Expr -> Program -> IO ()
 process e []             = putStrLn ("Done: " ++ show e)
