@@ -204,9 +204,9 @@ subExpr ctx = case left of
 subExprS :: [Rule] -> Set.Set Expr -> [Expr] -> [[Expr]]
 subExprS rs set []     = []
 subExprS rs set xs     = let newSet = Set.union nextLayer set
-			 in  nextLayerL : subExprS rs newSet nextLayerL
+                         in  xs : subExprS rs newSet nextLayerL
     where subs            = ctxXS ++ concatMap subExpr ctxXS
-	  transformedExpr = concatMap (\e -> concatMap (\r -> r e) (map apply rs)) subs
+          transformedExpr = concatMap (\e -> concatMap (\r -> r e) (map apply rs)) subs
           nextLayer       = Set.difference (Set.fromList (map getFullExpr transformedExpr)) set
           nextLayerL      = Set.toList nextLayer
           ctxXS           = map toCtx xs   
@@ -222,26 +222,26 @@ step (e, ze) e' = (e', ze)
 -- Finds a context that matches the lhs of an equal
 findCtx :: Expr -> Expr -> Maybe Ctx
 findCtx expr lhs | null candidates  = Nothing
-		 | otherwise        = Just $ head candidates
-	where tops       = map toCtx $ concat $ subExprS [distR, evalR, assocR, assocbR, fracR] Set.empty [expr]
-	      subs       = tops ++ concatMap subExpr tops
-	      candidates = filter (\(e,ze) -> e == lhs) subs
+                 | otherwise        = Just $ head candidates
+   where tops       = map toCtx $ concat $ subExprS [distR, evalR, assocR, assocbR, fracR] Set.empty [expr]
+         subs       = tops ++ concatMap subExpr tops
+         candidates = filter (\(e,ze) -> e == lhs) subs
 
 
 type Equal = (Expr, Expr)
-performStep :: Expr -> Equal -> Expr
+performStep :: Expr -> Equal -> Maybe Expr
 performStep e (lhs, rhs) | checkEqual = case ctx of
-					     Nothing -> error "No matching sub-expression"
-					     _       -> getFullExpr $ step (fromJust ctx) rhs
-			 | otherwise  = error "Invalid equal"
+					     Nothing -> Nothing
+					     _       -> Just $ getFullExpr $ step (fromJust ctx) rhs
+			 | otherwise  = Nothing
 	where checkEqual = eval lhs == eval rhs
 	      ctx        = findCtx e lhs
 
 -- Given only an expression, find the steps.
-performHalfStep :: Expr -> Expr -> Expr
+performHalfStep :: Expr -> Expr -> Maybe Expr
 performHalfStep e lhs = case ctx of
-				Nothing -> error "No matching sub-expression"
-				_       -> getFullExpr $ fromJust ctx
+				Nothing -> Nothing
+				_       -> Just $ getFullExpr $ fromJust ctx
 	where ctx        = findCtx e lhs
 
 
@@ -276,7 +276,7 @@ n_t' = [Lhs  (Mul (Double 0.75) (Double 0.75)),
 opdr1 = Mul (Con 32) (Mul sub sub)
 	where sub = Sub (Con 1) (Double 0.25)        
 
-ex1cor = (opdr1, [uitw1_1, uitw1_2, uitw1_3, uitw1_5])
+ex1cor = (opdr1, [uitw1_1, uitw1_2, uitw1_3, uitw1_4, uitw1_5])
     
 uitw1_1 :: Program
 uitw1_1 = [Both (Div (Con 32) (Con 4)) (Con 8),
@@ -308,7 +308,7 @@ uitw1_5 = [Both (Mul (Con 32) (Mul (Double 0.75) (Double 0.75))) (Mul (Con 24) (
          --Chocolate exercise
 opdr2 = Mul (Div (Add (Sub (Con 11) (Con 2)) (Sub (Con 7) (Con 4))) (Add (Con 18) (Con 12))) (Con 100)    
 
-ex2cor = (opdr2, [])
+ex2cor = (opdr2, [uitw2_1,uitw2_2])
         
 uitw2_1 :: Program
 uitw2_1 = [Lhs (Con 9),
@@ -326,7 +326,7 @@ uitw2_2 = [Both (Add (Con 18) (Con 12)) (Con 30),
         --Wine exercise
 opdr3 = Div (Con 225) (Div (Con 3) (Con 4)) 
 
-ex3cor = (opdr3, [])
+ex3cor = (opdr3, [uitw3_1])
 
 uitw3_1 :: Program 
 uitw3_1 = [Both (Div (Con 225) (Div (Con 3) (Con 4))) (Mul (Con 225) (Div (Con 4) (Con 3))),
@@ -336,7 +336,7 @@ uitw3_1 = [Both (Div (Con 225) (Div (Con 3) (Con 4))) (Mul (Con 225) (Div (Con 4
         --Stamp exercise
 opdr4 = Sub (Div (Double 4.74) (Con 6)) (Double 0.25)
 
-ex4cor = (opdr4, [uitw4_1])
+ex4cor = (opdr4, [uitw4_1,uitw4_2])
 
 uitw4_1 :: Program 
 uitw4_1 = [Both (Div (Double 4.74) (Con 6)) (Double 0.79),
@@ -349,10 +349,10 @@ uitw4_2 = [Both (Mul (Double 0.25) (Con 6)) (Double 1.50),
            
         --Work pay exercise
 opdr5 = Mul (Add mado vr) (Double 4.80)
-    where mado = Mul (Sub (Sub (Double 16.5) (Double 8.0)) (Sub (Double 12.75) (Double 12.0))) (Con 4)
-          vr   = Sub (Sub (Double 14.0) (Double 7.0)) (Sub (Double 12.0) (Double 11.5))
+    where mado = Mul (Sub (Sub (Double 16.5) (Con 8)) (Sub (Double 12.75) (Con 12))) (Con 4)
+          vr   = Sub (Sub (Con 14) (Con 7)) (Sub (Con 12) (Double 11.5))
 
-ex5cor = (opdr5, [])
+ex5cor = (opdr5, [uitw5_1,uitw5_2,uitw5_3])
           
 uitw5_1 :: Program 
 uitw5_1 = [Both (Sub (Sub (Add (Mul (Double 8.5) (Con 4)) (Con 7)) (Mul (Con 4) (Double 0.75))) (Double 0.5)) (Sub (Sub (Add (Double 34.0) (Con 7)) (Double 3.0)) (Double 0.5)),
@@ -384,7 +384,7 @@ uitw5_3 = [Lhs (Double 8.5),
         --Recipe exercise
 opdr6 = Mul (Div (Con 600) (Con 800)) (Con 300)   
 
-ex6cor = (opdr6, [])
+ex6cor = (opdr6, [uitw6_1])
 
 uitw6_1 :: Program
 uitw6_1 = [Both (Div (Con 600) (Con 800)) (Div (Con 3) (Con 4)),
@@ -394,14 +394,20 @@ uitw6_1 = [Both (Div (Con 600) (Con 800)) (Div (Con 3) (Con 4)),
 -- Process function
 process :: Expr -> Program -> IO ()
 process e []             = putStrLn ("Done: " ++ show e)
-process e ((Lhs lhs):xs) = do putStrLn ("Step: " ++ show lhs)
-			      let e' = performHalfStep e lhs
-			      putStrLn ("\t" ++ show e')
-			      process e' xs
-process e ((Both lhs rhs):xs)  = do putStrLn ("Step: " ++ show lhs ++ " = " ++ show rhs)
-				    let e' = performStep e (lhs, rhs)
-	                            putStrLn ("\t" ++ show e')
-				    process e' xs
+process e ((Lhs lhs):xs) = 
+             do putStrLn ("Step: " ++ show lhs)
+                let e' = performHalfStep e lhs
+                case e' of
+                     Nothing -> putStrLn ("\tFail")
+                     _       -> do putStrLn ("\t" ++ show e')
+                                   process (fromJust e') xs
+process e ((Both lhs rhs):xs)  =
+             do putStrLn ("Step: " ++ show lhs ++ " = " ++ show rhs)
+                let e' = performStep e (lhs, rhs)
+                case e' of
+                     Nothing -> putStrLn ("\tFail")
+                     _       -> do putStrLn ("\t" ++ show e')
+                                   process (fromJust $ e') xs
 
 process' opdr uitws = do putStrLn (show opdr)
                          putStrLn (replicate 80 '-')
