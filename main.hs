@@ -223,7 +223,7 @@ step (e, ze) e' = (e', ze)
 findCtx :: Expr -> Expr -> Maybe Ctx
 findCtx expr lhs | null candidates  = Nothing
                  | otherwise        = Just $ head candidates
-   where tops       = map toCtx $ concat $ subExprS [distR, evalR, assocR, assocbR, fracR] Set.empty [expr]
+   where tops       = map toCtx $ concat $ subExprS [distR, evalR, assocR, assocbR, fracR, commR] Set.empty [expr]
          subs       = tops ++ concatMap subExpr tops
          candidates = filter (\(e,ze) -> e == lhs) subs
 
@@ -231,7 +231,7 @@ findCtx expr lhs | null candidates  = Nothing
 type Equal = (Expr, Expr)
 performStep :: Expr -> Equal -> Maybe Expr
 performStep e (lhs, rhs) | checkEqual = case ctx of
-					     Nothing -> Nothing
+					     Nothing -> Just e
 					     _       -> Just $ getFullExpr $ step (fromJust ctx) rhs
 			 | otherwise  = Nothing
 	where checkEqual = eval lhs == eval rhs
@@ -355,9 +355,9 @@ opdr5 = Mul (Add mado vr) (Double 4.80)
 ex5cor = (opdr5, [uitw5_1,uitw5_2,uitw5_3])
           
 uitw5_1 :: Program 
-uitw5_1 = [Both (Sub (Sub (Add (Mul (Double 8.5) (Con 4)) (Con 7)) (Mul (Con 4) (Double 0.75))) (Double 0.5)) (Sub (Sub (Add (Double 34.0) (Con 7)) (Double 3.0)) (Double 0.5)),
-           Both (Sub (Sub (Add (Double 34.0) (Con 7)) (Double 3.0)) (Double 0.5)) (Double 37.5),
-           Both (Mul (Double 37.5) (Double 4.80)) (Double 180.0)]       
+uitw5_1 = [Both (Sub (Sub (Add (Mul (Double 8.5) (Con 4)) (Con 7)) (Mul (Con 4) (Double 0.75))) (Double 0.5)) (Sub (Sub (Add (Con 34) (Con 7)) (Con 3)) (Double 0.5)),
+           Both (Sub (Sub (Add (Con 34) (Con 7)) (Con 3)) (Double 0.5)) (Double 37.5),
+           Both (Mul (Double 37.5) (Double 4.80)) (Con 180)]       
            
            
 uitw5_2 :: Program 
@@ -406,8 +406,12 @@ process e ((Both lhs rhs):xs)  =
                 let e' = performStep e (lhs, rhs)
                 case e' of
                      Nothing -> putStrLn ("\tFail")
-                     _       -> do putStrLn ("\t" ++ show e')
-                                   process (fromJust $ e') xs
+                     _       -> if (fromJust e') == e then
+                                   do putStrLn ("\tIgnored")
+                                      process e xs
+                                else
+                                   do putStrLn ("\t" ++ show e')
+                                      process (fromJust $ e') xs
 
 process' opdr uitws = do putStrLn (show opdr)
                          putStrLn (replicate 80 '-')
