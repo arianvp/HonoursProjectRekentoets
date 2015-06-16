@@ -342,10 +342,8 @@ uitw4_2 :: Program
 uitw4_2 = [Both (Mul $ fromList [(Double 0.25), (Con 6)]) (Double 1.50),
            Both (Add $ fromList [(Double 4.74), (Double (-1.50))]) (Double 3.24),
            Both (Mul $ fromList [(Double 3.24), Div (Con 6)]) (Double 0.54)]       
-{-          
+        
         --Work pay exercise
-        --
-        --
 opdr5 = Mul $ fromList [Add $ fromList [mado, vr], Double 4.80]
   where mado = Mul $ fromList [Add $ fromList [(Add $ fromList [Double 16.5, Con (-8)]), Negate (Add $ fromList [Double 12.75, Con (-12)])], Con 4]
         vr   = Add $ fromList [Add $ fromList [Con 14, Con (-7)], Negate (Add $ fromList [Double (-11.5), Con 12])]
@@ -356,7 +354,7 @@ opdr5 = Mul $ fromList [Add $ fromList [mado, vr], Double 4.80]
           vr   = Sub (Sub (Con 14) (Con 7)) (Sub (Con 12) (Double 11.5))
 -}
 
-ex5cor = (opdr5, [uitw5_1,uitw5_2,uitw5_3])
+ex5cor = (opdr5, [uitw5_1, uitw5_2, uitw5_3])
           
 uitw5_1 :: Program 
 uitw5_1 = [ Both
@@ -364,14 +362,14 @@ uitw5_1 = [ Both
                               , Add $ fromList [ Add $ fromList [ Mul $ fromList [ Double 8.5
                                                                                  , Con 4]
                                                                 , Con 7]
-                                               , Mul $ fromList [ Con -4
+                                               , Mul $ fromList [ Con (-4)
                                                                 , Double 0.75]
                                                ]
                               ]
               )
               (Add $ fromList [ Add $ fromList [ Add $ fromList [Con 34, Con 7],  Con (-3) ], Double (-0.5)])
           , Both
-              (Add $ fromList [ Add $ fromList [ Add $ fromList [Con 34, Con 7]  Con (-3)],  Double (-0.5)])
+              (Add $ fromList [ Add $ fromList [ Add $ fromList [Con 34, Con 7],  Con (-3)],  Double (-0.5)])
               (Double 37.5)
           , Both
               (Mul $ fromList [Double 37.5, Double 4.80])
@@ -385,6 +383,15 @@ uitw5_1 = [ Both
                 (Con 180)]       
 -}
            
+uitw5_2 :: Program 
+uitw5_2 = [Lhs (Double 8.5),
+           Lhs (Double 0.75),
+           Both (Mul $ fromList [(Con 4), (Double 8.5)]) (Double 34.0),
+           Both (Add $ fromList [(Double 34.0), (Con (-3))]) (Double 31.0),
+           Both (Add $ fromList [(Double 31.0), (Con 7)]) (Double 38.0),
+           Both (Add $ fromList [(Double 38.0), (Double (-0.5))]) (Double 37.5),
+           Both (Add $ fromList [(Double 32.0), (Con 2)]) (Double 34.0),
+           Both (Mul $ fromList [(Double 37.5), (Double 4.80)]) (Double 180.0)]       
            
 {-uitw5_2 :: Program 
 uitw5_2 = [Lhs (Double 8.5),
@@ -395,8 +402,20 @@ uitw5_2 = [Lhs (Double 8.5),
            Both (Sub (Double 38.0) (Double 0.5)) (Double 37.5),
            Both (Add (Double 32.0) (Con 2)) (Double 34.0),
            Both (Mul (Double 37.5) (Double 4.80)) (Double 180.0)]       
+-} 
 
 uitw5_3 :: Program 
+uitw5_3 = [Lhs (Double 8.5),
+           Lhs (Double 0.75),
+           Both (Mul $ fromList [(Con 4), (Double 8.5)]) (Add $ fromList [(Double 32.0), (Con 2)]),
+           Both (Add $ fromList [(Double 32.0), (Con 2)]) (Double 34.0),
+           Both (Add $ fromList [(Double 34.0), (Con (-3))]) (Double 31.0),
+           Both (Add $ fromList [(Double 31.0), (Con 7)]) (Double 38.0),
+           Both (Add $ fromList [(Double 38.0), (Double (-0.5))]) (Double 37.5),
+           Both (Add $ fromList [(Double 32.0), (Con 2)]) (Double 34.0),
+           Both (Mul $ fromList [(Double 37.5), (Double 4.80)]) (Double 180.0)]   
+           
+{-uitw5_3 :: Program 
 uitw5_3 = [Lhs (Double 8.5),
            Lhs (Double 0.75),
            Both (Mul (Con 4) (Double 8.5)) (Add (Double 32.0) (Con 2)),
@@ -405,14 +424,13 @@ uitw5_3 = [Lhs (Double 8.5),
            Both (Add (Double 31.0) (Con 7)) (Double 38.0),
            Both (Sub (Double 38.0) (Double 0.5)) (Double 37.5),
            Both (Add (Double 32.0) (Con 2)) (Double 34.0),
-           Both (Mul (Double 37.5) (Double 4.80)) (Double 180.0)]   
-           
-        --Recipe exercise
-        --
+           Both (Mul (Double 37.5) (Double 4.80)) (Double 180.0)]  
+-}           
+        --Recipe exercise        
 --opdr6 = Mul (Div (Con 600) (Con 800)) (Con 300)   
 opdr6 =  Mul $ fromList [ Div (Con 800), Con 600, Con 300]
 ex6cor = (opdr6, [uitw6_1])
--}
+
 
 uitw6_1 :: Program
 uitw6_1 = [ Both
@@ -459,7 +477,7 @@ processmany exs = mapM_ doex exs
                                  process' opdr uitw
                                  putStrLn ("\n")
                         
---correct = processmany [ex1cor, ex2cor, ex3cor, ex4cor, ex5cor, ex6cor]    
+correct = processmany [ex1cor, ex2cor, ex3cor, ex4cor, ex5cor, ex6cor]    
 
 ----------------------------------
 --          STRATEGY            --
