@@ -250,9 +250,6 @@ data Line = Lhs Expr
 	  | Both Expr Expr
 type Program = [Line]
 
-opdr1 = Mul $ fromList [Con 32, sub, sub]
-    where sub = Add $ fromList [Con 1, Double (-0.25)]
-
 {-
 n_m :: Program
 n_m = [Both (Div (Con 32) (Con 4)) (Con 8),
@@ -270,42 +267,42 @@ n_t = [Lhs  (Mul (Double 0.75) (Double 0.75)),
 n_t' = [Lhs  (Mul (Double 0.75) (Double 0.75)),
         Both (Mul (Div (Con 3) (Con 4)) (Div (Con 3) (Con 4))) (Div (Con 9) (Con 16)),
         Both (Mul (Con 32) (Div (Con 9) (Con 16))) (Con 18)]
-    
+-}   
         --Matroesjka exercise
-opdr1 = Mul (Con 32) (Mul sub sub)
-	where sub = Sub (Con 1) (Double 0.25)        
+opdr1 = Mul $ fromList [(Con 32) , sub, sub]
+	where sub = Add $ fromList [(Con 1), (Double (-0.25))]      
 
 ex1cor = (opdr1, [uitw1_1, uitw1_2, uitw1_3, uitw1_4, uitw1_5])
     
 uitw1_1 :: Program
-uitw1_1 = [Both (Div (Con 32) (Con 4)) (Con 8),
-	 Both (Sub (Con 32) (Con 8)) (Con 24),
-	 Both (Div (Con 24) (Con 4)) (Con 6),
-	 Both (Sub (Con 24) (Con 6)) (Con 18)]
+uitw1_1 = [Both (Mul $ fromList [Div (Con 4) ,(Con 32)]) (Con 8),
+	 Both (Add $ fromList [(Con 32), (Con (-8))]) (Con 24),
+	 Both (Mul $ fromList [Div (Con 4), (Con 24)]) (Con 6),
+	 Both (Add $ fromList [(Con 24), (Con (-6))]) (Con 18)]
 
 uitw1_2 :: Program
-uitw1_2 = [Both (Div (Con 32) (Con 4)) (Con 8),
-	 Both (Sub (Con 32) (Con 8)) (Con 24),
+uitw1_2 = [Both (Mul $ fromList [(Con 32), Div (Con 4)]) (Con 8),
+	 Both (Add $ fromList [(Con 32), (Con (-8))]) (Con 24),
 	 Lhs  (Con 18)]
 
 uitw1_3 :: Program
-uitw1_3 = [Both (Sub (Con 32) (Con 8)) (Con 24),
-	 Both (Sub (Con 24) (Con 6)) (Con 18)]
+uitw1_3 = [Both (Add $ fromList [(Con 32), (Con (-8))]) (Con 24),
+	 Both (Add $ fromList [(Con 24), (Con (-6))]) (Con 18)]
 
 uitw1_4 :: Program
-uitw1_4 = [Both (Div (Con 32) (Con 4)) (Con 8),
-         Both (Div (Con 24) (Con 4)) (Con 6),
-         Both (Sub (Con 32) (Con 8)) (Con 24),
-         Both (Sub (Con 24) (Con 6)) (Con 18)]
+uitw1_4 = [Both (Mul $ fromList [(Con 32), Div (Con 4)]) (Con 8),
+         Both (Mul $ fromList [(Con 24), Div (Con 4)]) (Con 6),
+         Both (Add $ fromList [(Con 32), (Con (-8))]) (Con 24),
+         Both (Add $ fromList [(Con 24), (Con (-6))]) (Con 18)]
        
 uitw1_5 :: Program
-uitw1_5 = [Both (Mul (Con 32) (Mul (Double 0.75) (Double 0.75))) (Mul (Con 24) (Double 0.75)),
-         Both (Mul (Con 24) (Double 0.75)) (Con 18)]
+uitw1_5 = [Both (Mul $ fromList [(Con 32), (Double 0.75), (Double 0.75)]) (Mul $ fromList [(Con 24), (Double 0.75)]),
+         Both (Mul $ fromList [(Con 24), (Double 0.75)]) (Con 18)]
          
 
 
          --Chocolate exercise
-opdr2 = Mul (Div (Add (Sub (Con 11) (Con 2)) (Sub (Con 7) (Con 4))) (Add (Con 18) (Con 12))) (Con 100)    
+opdr2 = Mul $ fromList [Add $ fromList [Add $ fromList [(Con 11), (Con (-2))], Add $ fromList [(Con 7), (Con (-4))]], Div (Add $ fromList [(Con 18), (Con 12)]), (Con 100)]    
 
 ex2cor = (opdr2, [uitw2_1,uitw2_2])
         
@@ -314,38 +311,38 @@ uitw2_1 = [Lhs (Con 9),
            Lhs (Con 3),
            Lhs (Con 12),
            Lhs (Con 30),
-           Both (Mul (Div (Con 12) (Con 30)) (Con 100)) (Con 40)]
+           Both (Mul $ fromList [(Con 12), Div (Con 30), (Con 100)]) (Con 40)]
 
 uitw2_2 :: Program
-uitw2_2 = [Both (Add (Con 18) (Con 12)) (Con 30),
-           Both (Sub (Con 11) (Con 2)) (Con 9),
+uitw2_2 = [Both (Add $ fromList [(Con 18), (Con 12)]) (Con 30),
+           Both (Add $ fromList [(Con 11), (Con (-2))]) (Con 9),
            Lhs (Con 3),
-           Both (Mul (Div (Con 12) (Con 30)) (Con 100)) (Con 40)]
+           Both (Mul $ fromList [(Con 12), Div (Con 30), (Con 100)]) (Con 40)]
  
         --Wine exercise
-opdr3 = Div (Con 225) (Div (Con 3) (Con 4)) 
+opdr3 = Mul $ fromList [(Con 225), Div (Mul $ fromList [(Con 3), Div (Con 4)])] 
 
 ex3cor = (opdr3, [uitw3_1])
 
 uitw3_1 :: Program 
-uitw3_1 = [Both (Div (Con 225) (Div (Con 3) (Con 4))) (Mul (Con 225) (Div (Con 4) (Con 3))),
-           Both (Mul (Con 225) (Div (Con 4) (Con 3))) (Div (Con 900) (Con 3)),
-           Both (Div (Con 900) (Con 3)) (Con 300)]       
+uitw3_1 = [Both (Mul $ fromList [(Con 225), Div (Mul $ fromList [(Con 3), Div (Con 4)])]) (Mul $ fromList [(Con 225), (Mul $ fromList [(Con 4), Div (Con 3)])]),
+           Both (Mul $ fromList [(Con 225), (Mul $ fromList [(Con 4), Div (Con 3)])]) (Mul $ fromList [(Con 900), Div (Con 3)]),
+           Both (Mul $ fromList [(Con 900), Div (Con 3)]) (Con 300)]       
            
         --Stamp exercise
-opdr4 = Sub (Div (Double 4.74) (Con 6)) (Double 0.25)
+opdr4 = Add $ fromList [(Mul $ fromList [(Double 4.74), Div (Con 6)]), (Double (-0.25))]
 
 ex4cor = (opdr4, [uitw4_1,uitw4_2])
 
 uitw4_1 :: Program 
-uitw4_1 = [Both (Div (Double 4.74) (Con 6)) (Double 0.79),
-           Both (Sub (Double 0.79) (Double 0.25)) (Double 0.54)]       
+uitw4_1 = [Both (Mul $ fromList [(Double 4.74), Div (Con 6)]) (Double 0.79),
+           Both (Add $ fromList [(Double 0.79), (Double (-0.25))]) (Double 0.54)]       
 
 uitw4_2 :: Program 
-uitw4_2 = [Both (Mul (Double 0.25) (Con 6)) (Double 1.50),
-           Both (Sub (Double 4.74) (Double 1.50)) (Double 3.24),
-           Both (Div (Double 3.24) (Con 6)) (Double 0.54)]       
-           
+uitw4_2 = [Both (Mul $ fromList [(Double 0.25), (Con 6)]) (Double 1.50),
+           Both (Add $ fromList [(Double 4.74), (Double (-1.50))]) (Double 3.24),
+           Both (Mul $ fromList [(Double 3.24), Div (Con 6)]) (Double 0.54)]       
+{-          
         --Work pay exercise
 opdr5 = Mul (Add mado vr) (Double 4.80)
     where mado = Mul (Sub (Sub (Double 16.5) (Con 8)) (Sub (Double 12.75) (Con 12))) (Con 4)
