@@ -344,19 +344,49 @@ uitw4_2 = [Both (Mul $ fromList [(Double 0.25), (Con 6)]) (Double 1.50),
            Both (Mul $ fromList [(Double 3.24), Div (Con 6)]) (Double 0.54)]       
 {-          
         --Work pay exercise
-opdr5 = Mul (Add mado vr) (Double 4.80)
+        --
+        --
+opdr5 = Mul $ fromList [Add $ fromList [mado, vr], Double 4.80]
+  where mado = Mul $ fromList [Add $ fromList [(Add $ fromList [Double 16.5, Con (-8)]), Negate (Add $ fromList [Double 12.75, Con (-12)])], Con 4]
+        vr   = Add $ fromList [Add $ fromList [Con 14, Con (-7)], Negate (Add $ fromList [Double (-11.5), Con 12])]
+{-opdr5 = Mul (Add mado vr) (Double 4.80)
+
+    -- mado =  ((16.5 - 8) - (12.75 - 12)) * 4
     where mado = Mul (Sub (Sub (Double 16.5) (Con 8)) (Sub (Double 12.75) (Con 12))) (Con 4)
           vr   = Sub (Sub (Con 14) (Con 7)) (Sub (Con 12) (Double 11.5))
+-}
 
 ex5cor = (opdr5, [uitw5_1,uitw5_2,uitw5_3])
           
 uitw5_1 :: Program 
-uitw5_1 = [Both (Sub (Sub (Add (Mul (Double 8.5) (Con 4)) (Con 7)) (Mul (Con 4) (Double 0.75))) (Double 0.5)) (Sub (Sub (Add (Con 34) (Con 7)) (Con 3)) (Double 0.5)),
-           Both (Sub (Sub (Add (Con 34) (Con 7)) (Con 3)) (Double 0.5)) (Double 37.5),
-           Both (Mul (Double 37.5) (Double 4.80)) (Con 180)]       
+uitw5_1 = [ Both
+              (Add $ fromList [ Double (-0.5)
+                              , Add $ fromList [ Add $ fromList [ Mul $ fromList [ Double 8.5
+                                                                                 , Con 4]
+                                                                , Con 7]
+                                               , Mul $ fromList [ Con -4
+                                                                , Double 0.75]
+                                               ]
+                              ]
+              )
+              (Add $ fromList [ Add $ fromList [ Add $ fromList [Con 34, Con 7],  Con (-3) ], Double (-0.5)])
+          , Both
+              (Add $ fromList [ Add $ fromList [ Add $ fromList [Con 34, Con 7]  Con (-3)],  Double (-0.5)])
+              (Double 37.5)
+          , Both
+              (Mul $ fromList [Double 37.5, Double 4.80])
+              (Con 180)
+          ]
+{-uitw5_1 = [Both (Sub (Sub (Add (Mul (Double 8.5) (Con 4)) (Con 7)) (Mul (Con 4) (Double 0.75))) (Double 0.5))
+                (Sub (Sub (Add (Con 34) (Con 7)) (Con 3)) (Double 0.5)),
+           Both (Sub (Sub (Add (Con 34) (Con 7)) (Con 3)) (Double 0.5))
+                (Double 37.5),
+           Both (Mul (Double 37.5) (Double 4.80))
+                (Con 180)]       
+-}
            
            
-uitw5_2 :: Program 
+{-uitw5_2 :: Program 
 uitw5_2 = [Lhs (Double 8.5),
            Lhs (Double 0.75),
            Both (Mul (Con 4) (Double 8.5)) (Double 34.0),
@@ -378,14 +408,22 @@ uitw5_3 = [Lhs (Double 8.5),
            Both (Mul (Double 37.5) (Double 4.80)) (Double 180.0)]   
            
         --Recipe exercise
-opdr6 = Mul (Div (Con 600) (Con 800)) (Con 300)   
-
+        --
+--opdr6 = Mul (Div (Con 600) (Con 800)) (Con 300)   
+opdr6 =  Mul $ fromList [ Div (Con 800), Con 600, Con 300]
 ex6cor = (opdr6, [uitw6_1])
+-}
 
 uitw6_1 :: Program
-uitw6_1 = [Both (Div (Con 600) (Con 800)) (Div (Con 3) (Con 4)),
-           Both (Mul (Con 300) (Div (Con 3) (Con 4))) (Con 225)]
-           -}
+uitw6_1 = [ Both
+              (Mul $ fromList [Div (Con 800), Con 600])
+              (Mul $ fromList [Div (Con 4), Con 3])
+          , Both
+              (Mul $ fromList [Con 300, Con 4, Div (Con 3)])
+              (Con 225)
+          ]
+{-uitw6_1 = [Both (Div (Con 600) (Con 800)) (Div (Con 3) (Con 4)),
+           Both (Mul (Con 300) (Div (Con 3) (Con 4))) (Con 225)]-}
 
 -- Process function
 process :: Expr -> Program -> IO ()
@@ -455,7 +493,18 @@ evalScore :: Double -> Integer
 evalScore x | x == fromIntegral (round x) = 10
 	    | otherwise                   = 1
 
-niceness :: Expr -> Integer
+niceness :: Expr -> IntegernonEmptySubsequences         :: [a] -> [[a]]
+nonEmptySubsequences []      =  []
+nonEmptySubsequences (x:xs)  =  [x] : foldr f [] (nonEmptySubsequences xs)
+  where f ys r = ys : (x : ys) : r
+
+
+subs xs = partition g . map f . nonEmptySubsequences $ xs
+  where f ys = (ys, xs\\ys)
+        g ([_],_) = True
+        g _ = False
+
+
 niceness (Add x y) = (evalScore (eval x + eval y)) * (simpleScore x y) * 2 
 niceness (Sub x y) = (evalScore (eval x - eval y)) * (simpleScore x y)
 niceness (Mul x y) = (evalScore (eval x * eval y)) * (simpleScore x y)
