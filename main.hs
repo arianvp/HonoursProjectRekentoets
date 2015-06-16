@@ -30,7 +30,7 @@ insertList (x:xs) (Bag map) = insertList xs (Bag $ M.insertWith (+) x 1 map)
 remove :: (Ord a) => a -> Bag a -> Bag a
 remove a b@(Bag map) | isNothing value     = b
                      | fromJust value <= 1 = Bag $ M.delete a map
-                     | otherwise           = Bag $ M.insertWith (-) a 1 map
+                     | otherwise           = Bag $ M.insertWith (flip (-)) a 1 map
     where value = M.lookup a map
 
 fromList :: (Ord a) => [a] -> Bag a
@@ -107,19 +107,14 @@ goDown (e, ze) = res e
                                  single' = map (\([e], es) -> (e, AddI ze $ fromList es)) single
                                  comb'   = map (\(e, es) -> (Add $ fromList e, AddI ze $ fromList es)) combinations
                              in comb' ++ single'
-                                 --map (\es -> (Add $ fromList es, AddI (Add (fromList [Add $ fromList es] ++ ((toList xs) \\ es)), ze))) (snd $ f xs)
-                           -- ++ map (\e' -> (e', AddI ze (remove e' xs))) (toList xs) -- Hammer time makes its easier
             res (Negate x) = [(x, NegI ze)]
             res (Mul xs)   = let (single, combinations) = f $ toList xs
                                  single' = map (\([e], es) -> (e, MulI ze $ fromList es)) single
                                  comb'   = map (\(e, es) -> (Mul $ fromList e, MulI ze $ fromList es)) combinations
                              in comb' ++ single' 
-                                 --map (\e' -> (e', MulI ze (remove e' xs))) $ concat $ nub $ filter (not . null) $ subsequences $ toList xs
             res (Div x)    = [(x, DivI ze)]
             res _          = []
-            -- unnsubs xs     = nub $ filter (not . null) $ subsequences $ toList xs
-            --f xs           = partition (\(l, r) -> length l == 1) $ nonEmptySubExpr xs
-            f = subs
+            f              = subs
             
 nonEmptySubExpr         :: [Expr] -> [([Expr],[Expr])]
 nonEmptySubExpr []          =  []
@@ -155,7 +150,7 @@ goUp (e, ze) = res ze
 	      comps (Mul xs)    = toList xs
 
 
--- Unsafe shorthands for goLeft/goRight/goUp.
+-- Unsafe shorthands for goUp.
 goUpU :: Ctx -> Ctx
 goUpU = fromJust . goUp
 
@@ -180,7 +175,8 @@ distR (Mul multies)   = map convert $ concatMap dist_optos addies
           is_addie _       = False
           othas e          = toList (remove e multies)
           dist_optos e     = map (\opt -> (opt, e)) $ othas e
-          convert (mul, (Add xs)) = Add (fromList $ map (\x -> Mul $ fromList [mul, x]) $ toList xs) -- TODO: Subsequences
+          convert (mul, add@(Add xs)) = let distedAdd = Add (fromList $ map (\x -> Mul $ fromList [mul, x]) $ toList xs) -- TODO: Subsequences
+					in Mul $ fromList (distedAdd : (toList multies \\ [mul, add]))
 distR _         = []
       
 evalR :: Rule
@@ -213,15 +209,16 @@ neg2subR (Mul xs)              = if negatives then [Negate (Mul flipped)] else [
 	      flipE (Double x) = (Double (0.0 - x))
 	      flipE x          = Negate x
 neg2subR _              = []
-{-
+
+
 fracR :: Rule
-fracR (Double x)        | nice      = Just $ Mul $Div (Con (n `div` diver)) (Con (10000 `div` diver))
-			| otherwise = Nothing
-	where n     = round (x * 10000)
-	      nice  = fromIntegral n / 10000 == x
-	      diver = gcd 10000 n
-fracR _                  = Nothing
--}
+fracR (Double x)        | nice                         = [Mul $ fromList [Con (n `div` diver), Div (Con (10000 `div` diver))]]
+			| otherwise                    = []
+	where n       = round (x * 10000)
+	      nice    = fromIntegral n / 10000 == x
+	      diver   = gcd 10000 (abs n)
+	      flipped = x < 0
+fracR _                  = []
 
 apply :: Rule -> Ctx -> [Ctx]
 apply r (e, ze) = map (\x -> (x, ze)) $ r e
@@ -258,7 +255,7 @@ step (e, ze) e' = (e', ze)
 findCtx :: Expr -> Expr -> Maybe Ctx
 findCtx expr lhs | null candidates  = Nothing
                  | otherwise        = Just $ head candidates
-   where tops       = map toCtx $ concat $ subExprS [distR, evalR] Set.empty [expr]
+   where tops       = map toCtx $ concat $ subExprS [distR, evalR, neg2subR, fracR] Set.empty [expr]
          subs       = tops ++ concatMap subExpr tops
          candidates = filter (\(e,ze) -> e == lhs) subs
 
@@ -386,12 +383,6 @@ uitw4_2 = [Both (Mul $ fromList [(Double 0.25), (Con 6)]) (Double 1.50),
 opdr5 = Mul $ fromList [Add $ fromList [mado, vr], Double 4.80]
   where mado = Mul $ fromList [Add $ fromList [(Add $ fromList [Double 16.5, Con (-8)]), Negate (Add $ fromList [Double 12.75, Con (-12)])], Con 4]
         vr   = Add $ fromList [Add $ fromList [Con 14, Con (-7)], Negate (Add $ fromList [Double (-11.5), Con 12])]
-{-opdr5 = Mul (Add mado vr) (Double 4.80)
-
-    -- mado =  ((16.5 - 8) - (12.75 - 12)) * 4
-    where mado = Mul (Sub (Sub (Double 16.5) (Con 8)) (Sub (Double 12.75) (Con 12))) (Con 4)
-          vr   = Sub (Sub (Con 14) (Con 7)) (Sub (Con 12) (Double 11.5))
--}
 
 ex5cor = (opdr5, [uitw5_1, uitw5_2, uitw5_3])
           
@@ -414,13 +405,6 @@ uitw5_1 = [ Both
               (Mul $ fromList [Double 37.5, Double 4.80])
               (Con 180)
           ]
-{-uitw5_1 = [Both (Sub (Sub (Add (Mul (Double 8.5) (Con 4)) (Con 7)) (Mul (Con 4) (Double 0.75))) (Double 0.5))
-                (Sub (Sub (Add (Con 34) (Con 7)) (Con 3)) (Double 0.5)),
-           Both (Sub (Sub (Add (Con 34) (Con 7)) (Con 3)) (Double 0.5))
-                (Double 37.5),
-           Both (Mul (Double 37.5) (Double 4.80))
-                (Con 180)]       
--}
            
 uitw5_2 :: Program 
 uitw5_2 = [Lhs (Double 8.5),
@@ -431,17 +415,6 @@ uitw5_2 = [Lhs (Double 8.5),
            Both (Add $ fromList [(Double 38.0), (Double (-0.5))]) (Double 37.5),
            Both (Add $ fromList [(Double 32.0), (Con 2)]) (Double 34.0),
            Both (Mul $ fromList [(Double 37.5), (Double 4.80)]) (Double 180.0)]       
-           
-{-uitw5_2 :: Program 
-uitw5_2 = [Lhs (Double 8.5),
-           Lhs (Double 0.75),
-           Both (Mul (Con 4) (Double 8.5)) (Double 34.0),
-           Both (Sub (Double 34.0) (Con 3)) (Double 31.0),
-           Both (Add (Double 31.0) (Con 7)) (Double 38.0),
-           Both (Sub (Double 38.0) (Double 0.5)) (Double 37.5),
-           Both (Add (Double 32.0) (Con 2)) (Double 34.0),
-           Both (Mul (Double 37.5) (Double 4.80)) (Double 180.0)]       
--} 
 
 uitw5_3 :: Program 
 uitw5_3 = [Lhs (Double 8.5),
@@ -453,18 +426,7 @@ uitw5_3 = [Lhs (Double 8.5),
            Both (Add $ fromList [(Double 38.0), (Double (-0.5))]) (Double 37.5),
            Both (Add $ fromList [(Double 32.0), (Con 2)]) (Double 34.0),
            Both (Mul $ fromList [(Double 37.5), (Double 4.80)]) (Double 180.0)]   
-           
-{-uitw5_3 :: Program 
-uitw5_3 = [Lhs (Double 8.5),
-           Lhs (Double 0.75),
-           Both (Mul (Con 4) (Double 8.5)) (Add (Double 32.0) (Con 2)),
-           Both (Add (Double 32.0) (Con 2)) (Double 34.0),
-           Both (Sub (Double 34.0) (Con 3)) (Double 31.0),
-           Both (Add (Double 31.0) (Con 7)) (Double 38.0),
-           Both (Sub (Double 38.0) (Double 0.5)) (Double 37.5),
-           Both (Add (Double 32.0) (Con 2)) (Double 34.0),
-           Both (Mul (Double 37.5) (Double 4.80)) (Double 180.0)]  
--}           
+        
         --Recipe exercise        
 --opdr6 = Mul (Div (Con 600) (Con 800)) (Con 300)   
 opdr6 =  Mul $ fromList [ Div (Con 800), Con 600, Con 300]
@@ -479,8 +441,6 @@ uitw6_1 = [ Both
               (Mul $ fromList [Con 300, Con 4, Div (Con 3)])
               (Con 225)
           ]
-{-uitw6_1 = [Both (Div (Con 600) (Con 800)) (Div (Con 3) (Con 4)),
-           Both (Mul (Con 300) (Div (Con 3) (Con 4))) (Con 225)]-}
 
 -- Process function
 process :: Expr -> Program -> IO ()
