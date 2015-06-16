@@ -109,13 +109,26 @@ goDown (e, ze) = res e
             res (Div x)    = [(x, DivI ze)]
             res _          = []
             -- unnsubs xs     = nub $ filter (not . null) $ subsequences $ toList xs
-            f xs           = partition (\(l, r) -> length l == 1) $ nonEmptySubExpr xs
+            --f xs           = partition (\(l, r) -> length l == 1) $ nonEmptySubExpr xs
+            f = subs
             
 nonEmptySubExpr         :: [Expr] -> [([Expr],[Expr])]
 nonEmptySubExpr []          =  []
 nonEmptySubExpr (x: xs) =  ([x], xs) : foldr f [] (nonEmptySubExpr xs)
     where f (b, bs) r = (b, x : bs) : (x : b, bs) : r
+
+nonEmptySubsequences         :: [a] -> [[a]]
+nonEmptySubsequences []      =  []
+nonEmptySubsequences (x:xs)  =  [x] : foldr f [] (nonEmptySubsequences xs)
+  where f ys r = ys : (x : ys) : r
           
+
+
+subs xs = partition g . map f . nonEmptySubsequences $ xs
+  where f ys = (ys, xs\\ys)
+        g ([_],_) = True
+        g _ = False
+
 goUp :: Ctx -> Maybe Ctx
 goUp (e, ze) = res ze
 	where res (AddI ze' xs) = Just (Add (insert e xs), ze')
