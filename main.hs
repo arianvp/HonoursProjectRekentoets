@@ -1,10 +1,46 @@
 module Main where
 
 import Data.Maybe
-import Data.List
+import Data.List (subsequences, nub, (\\), partition)
 import qualified Data.Set as Set
+import qualified Data.Map as M
+import Data.Map (Map)
 import qualified Ideas.Common.Library as I
 import qualified Ideas.Main.Default as I
+
+----------------------------------
+--          BAG                 --
+----------------------------------
+newtype Bag a = Bag (Map a Int)
+    deriving (Show,Read,Ord,Eq)
+
+empty :: Bag a
+empty = Bag $ M.empty
+
+singleton :: a -> Bag a
+singleton a = Bag $ M.singleton a 1
+
+insert :: (Ord a) => a -> Bag a -> Bag a
+insert x (Bag map) = Bag $ M.insertWith (+) x 1 map
+
+remove :: (Ord a) => a -> Bag a -> Bag a
+remove a b@(Bag map) | isNothing value     = b
+                     | fromJust value <= 1 = Bag $ M.delete a map
+                     | otherwise           = Bag $ M.insertWith (-) a 1 map
+    where value = M.lookup a map
+
+fromList :: (Ord a) => [a] -> Bag a
+fromList = foldl f empty
+    where
+        f (Bag map) x = Bag $ M.insertWith (+) x 1 map
+
+toList :: Bag a -> [a]
+toList (Bag m) = concatMap f $ M.toList m
+    where f (a,b) = replicate b a
+
+toListU :: Bag a -> [a]
+toListU (Bag m) = map f $ M.toList m
+    where f (a,b) = a
 
 
 ----------------------------------
@@ -12,21 +48,18 @@ import qualified Ideas.Main.Default as I
 ----------------------------------
 -- Expression data type
 data Expr = Con Int
-	  | Add Expr Expr
-	  | Sub Expr Expr 
-	  | Mul Expr Expr
-	  | Div Expr Expr
+	  | Add (Bag Expr)
+	  | Negate Expr
+	  | Mul (Bag Expr)
+	  | Div Expr
 	  | Double Double
      deriving (Eq, Read, Ord)
 -- Zipper data type
-data ZExpr = AddL ZExpr Expr
-	   | AddR ZExpr Expr
-	   | SubL ZExpr Expr
-	   | SubR ZExpr Expr
-	   | MulL ZExpr Expr
-	   | MulR ZExpr Expr
-	   | DivL ZExpr Expr
-	   | DivR ZExpr Expr
+data ZExpr = 
+        AddI   ZExpr (Bag Expr)
+	   | NegI   ZExpr
+	   | MulI   ZExpr (Bag Expr)
+	   | DivI   ZExpr
 	   | Top
       deriving (Eq, Show, Read)
 -- Location consisting out of an (sub)expression and ZExpr.
@@ -35,10 +68,10 @@ type Ctx = (Expr, ZExpr)
 
 instance Show Expr where
 	show (Con x)    = show x
-	show (Add l r)  = "(" ++ show l ++ " + " ++ show r ++ ")"
-	show (Sub l r)  = "(" ++ show l ++ " - " ++ show r ++ ")" 
-	show (Mul l r)  = "(" ++ show l ++ " * " ++ show r ++ ")"
-	show (Div l r)  = "(" ++ show l ++ " / " ++ show r ++ ")"
+	show (Add xs)   = "( +: " ++ show (toList xs) ++ ")"
+	show (Negate x) = "-" ++ show x
+	show (Mul xs)   = "( *:" ++ show (toList xs) ++ ")"
+	show (Div x)    = "1/" ++ show x
 	show (Double x) = show x
 
 ----------------------------------
@@ -47,50 +80,52 @@ instance Show Expr where
 -- Evaluate the expression.
 eval :: Expr -> Double
 eval (Con x)    = fromIntegral x
-eval (Add x y)  = eval x + eval y
-eval (Sub x y)  = eval x - eval y
-eval (Mul x y)  = eval x * eval y
-eval (Div x y)  = eval x / eval y
+eval (Add xs)   = sum (map eval $ toList xs)
+eval (Negate x) = 0.0 - eval x
+eval (Mul xs)   = product (map eval $ toList xs)
+eval (Div x)    = 1.0 / eval x
 eval (Double x) = x
 
 -- Lift an expression to a zipper
 toCtx :: Expr -> Ctx
 toCtx e = (e, Top)
 
-goLeft :: Ctx -> Maybe Ctx
-goLeft (e, ze) = res e
-	where res (Add l r) = Just (l, AddL ze r)
-	      res (Sub l r) = Just (l, SubL ze r)
-	      res (Mul l r) = Just (l, MulL ze r)
-	      res (Div l r) = Just (l, DivL ze r)
-	      res _         = Nothing
-
-goRight :: Ctx -> Maybe Ctx
-goRight (e, ze) = res e
-	where res (Add l r) = Just (r, AddR ze l)
-	      res (Sub l r) = Just (r, SubR ze l)
-	      res (Mul l r) = Just (r, MulR ze l)
-	      res (Div l r) = Just (r, DivR ze l)
-	      res _         = Nothing
-
+goDown :: Ctx -> [Ctx]
+goDown (e, ze) = res e
+    where 
+            res :: Expr -> [Ctx]
+            res (Add xs)   = let (single, combinations) = f $ toList xs
+                                 single' = map (\([e], es) -> (e, AddI ze $ fromList es)) single
+                                 comb'   = map (\(e, es) -> (Add $ fromList e, AddI ze $ fromList es)) combinations
+                             in single' 
+                                 --map (\es -> (Add $ fromList es, AddI (Add (fromList [Add $ fromList es] ++ ((toList xs) \\ es)), ze))) (snd $ f xs)
+                           -- ++ map (\e' -> (e', AddI ze (remove e' xs))) (toList xs) -- Hammer time makes its easier
+            res (Negate x) = [(x, NegI ze)]
+            res (Mul xs)   = let (single, combinations) = f $ toList xs
+                                 single' = map (\([e], es) -> (e, MulI ze $ fromList es)) single
+                                 comb'   = map (\(e, es) -> (Mul $ fromList e, MulI ze $ fromList es)) combinations
+                             in comb'  ++ concatMap goDown single' 
+                                 --map (\e' -> (e', MulI ze (remove e' xs))) $ concat $ nub $ filter (not . null) $ subsequences $ toList xs
+            res (Div x)    = [(x, DivI ze)]
+            res _          = []
+            -- unnsubs xs     = nub $ filter (not . null) $ subsequences $ toList xs
+            f xs           = partition (\(l, r) -> length l == 1) $ nonEmptySubExpr xs
+            
+nonEmptySubExpr         :: [Expr] -> [([Expr],[Expr])]
+nonEmptySubExpr []          =  []
+nonEmptySubExpr (x: xs) =  ([x], xs) : foldr f [] (nonEmptySubExpr xs)
+    where f (b, bs) r = (b, x : bs) : (x : b, bs) : r
+          
 goUp :: Ctx -> Maybe Ctx
 goUp (e, ze) = res ze
-	where res (AddL ze' r) = Just ((Add e r), ze')
-	      res (AddR ze' l) = Just ((Add l e), ze')
-	      res (SubL ze' r) = Just ((Sub e r), ze')
-	      res (SubR ze' l) = Just ((Sub l e), ze')
-	      res (MulL ze' r) = Just ((Mul e r), ze')
-	      res (MulR ze' l) = Just ((Mul l e), ze')
-	      res (DivL ze' r) = Just ((Div e r), ze')
-	      res (DivR ze' l) = Just ((Div l e), ze')
-	      res (Top)        = Nothing
+	where res (AddI ze' xs) = Just (Add (insert e xs), ze')
+	      res (NegI ze')    = Just (Negate e, ze')
+	      res (MulI ze' xs) = Just (Mul (insert e xs), ze')
+	      res (DivI ze')    = Just (Div e, ze')
+	      res (Top)         = Nothing
 
 
 -- Unsafe shorthands for goLeft/goRight/goUp.
-goLeftU :: Ctx -> Ctx
-goLeftU = fromJust . goLeft
-goRightU :: Ctx -> Ctx
-goRightU = fromJust . goRight
 goUpU :: Ctx -> Ctx
 goUpU = fromJust . goUp
 
@@ -105,105 +140,48 @@ getFullExpr (e, Top) = e
 getFullExpr ctx      = getFullExpr $ goUpU ctx -- Unsafely go up, should work since the top should be indicated by ZExpr Top
 
 ----------------------------------
---          EXAMPLE EXPR        --
-----------------------------------
-expr1 :: Expr
-expr1 = Mul (Con 5) (Add (Con 2) (Add (Con 3) (Con 2)))
-
-expr2 :: Expr
-expr2 = Mul (Con 32) (Mul expr2_sub expr2_sub)
-	where expr2_sub = Add (Con 1) (Double (-0.25))
-
-expr2' :: Expr -- Matroesjka
-expr2' = Mul (Con 32) (Mul expr2_sub expr2_sub)
-	where expr2_sub = Sub (Con 1) (Double 0.25)
-	
-expr3 :: Expr
-expr3 = Mul (Add (Con 2) (Con 3)) (Add (Con 5) (Con 7))
-
-expr4 :: Expr
-expr4 = Add (Con 1) (Add (Con 2) (Con 3))
-
-expr5 :: Expr
-expr5 = Mul (Add (Con 32) (Sub (Con 5) (Add (Con 2) (Con 3)))) (Con 2)
-
-----------------------------------
 --          RULES               --
 ----------------------------------
-type Rule = Expr -> Maybe Expr
+type Rule = Expr -> [Expr]
 distR :: Rule
-distR (Mul x y) = split y x
-	where split (Add x y) e = Just (Add (Mul e x) (Mul e y))
-	      split (Sub x y) e = Just (Sub (Mul e x) (Mul e y))
-	      split (Div x y) e = Just (Div (Mul e x) y)
-	      split _ _         = Nothing
-distR _         = Nothing
+distR (Mul multies)   = map convert $ concatMap dist_optos addies 
+    where addies           = filter is_addie $ toListU multies
+          is_addie (Add _) = True
+          is_addie _       = False
+          othas e          = toList (remove e multies)
+          dist_optos e     = map (\opt -> (opt, e)) $ othas e
+          convert (mul, (Add xs)) = Add (fromList $ map (\x -> Mul $ fromList [mul, x]) $ toList xs) -- TODO: Subsequences
+distR _         = []
       
 evalR :: Rule
-evalR (Add (Con x) (Con y))       = Just $ Con (x + y)
-evalR (Add (Con x) (Double y))    = Just $ Double (fromIntegral x + y)
-evalR (Add (Double x) (Con y))    = Just $ Double (x + fromIntegral y)
-evalR (Add (Double x) (Double y)) = depends (x + y)
-evalR (Mul (Con x) (Con y))       = Just $ Con (x * y)
-evalR (Mul (Con x) (Double y))    = depends (fromIntegral x * y)
-evalR (Mul (Double x) (Con y))    = depends (x * fromIntegral y)
-evalR (Mul (Double x) (Double y)) = depends (x * y)
-evalR (Sub (Con x) (Con y))       = Just $ Con (x - y)
-evalR (Sub (Con x) (Double y))    = Just $ Double (fromIntegral x - y)
-evalR (Sub (Double x) (Con y))    = Just $ Double (x - fromIntegral y)
-evalR (Sub (Double x) (Double y)) = depends (x - y)
-evalR (Div (Con x) (Con y))       = depends (fromIntegral x / fromIntegral y)
-evalR (Div (Con x) (Double y))    = depends (fromIntegral x / y)
-evalR (Div (Double x) (Con y))    = depends (x / fromIntegral y)
-evalR (Div (Double x) (Double y)) = depends (x / y)
-evalR _          = Nothing
+evalR (Add xs)       = map (depends . sum)     $ map (map eval) $ filter (\seq -> length seq == 2) $ subsequences $ toList xs 
+evalR (Mul xs)       = map (depends . product) $ map (map eval) $ filter (\seq -> length seq == 2) $ subsequences $ toList xs 
+evalR _              = []
 
-depends x = Just $ (if integral then Con (round x) else Double x)
+depends x = if integral then Con (round x) else Double x
 	where integral = x == fromIntegral (round x)
 
-commR :: Rule
-commR (Add x y)         = Just $ Add y x
-commR (Mul x y)         = Just $ Mul y x
-commR _                 = Nothing
-
-assocR :: Rule
-assocR (Add x (Add y z)) = Just $ Add (Add x y) z
-assocR (Mul x (Mul y z)) = Just $ Mul (Mul x y) z
-assocR _                 = Nothing
-
-assocbR :: Rule
-assocbR (Add (Add x y) z) = Just $ Add x (Add y z)
-assocbR (Mul (Mul x y) z) = Just $ Mul x (Mul y z)
-assocbR _                 = Nothing
-
+{-
 fracR :: Rule
-fracR (Double x)        | nice      = Just $ Div (Con (n `div` diver)) (Con (10000 `div` diver))
+fracR (Double x)        | nice      = Just $ Mul $Div (Con (n `div` diver)) (Con (10000 `div` diver))
 			| otherwise = Nothing
 	where n     = round (x * 10000)
 	      nice  = fromIntegral n / 10000 == x
 	      diver = gcd 10000 n
 fracR _                  = Nothing
+-}
 
 apply :: Rule -> Ctx -> [Ctx]
-apply r (e,ze) = case r e of
-		 Nothing -> []
-		 _       -> [(fromJust $ r e, ze)]
-
-
-
+apply r (e, ze) = map (\x -> (x, ze)) $ r e
 
 
 ----------------------------------
 --          SUB-EXPR            --
 ----------------------------------
 subExpr :: Ctx -> [Ctx]
-subExpr ctx = case left of
-         Nothing -> []
-         _       -> [leftU, rightU] ++ subExpr leftU ++ subExpr rightU 
-   where left   = goLeft  ctx
-         right  = goRight ctx
-         leftU  = fromJust left
-         rightU = fromJust right
+subExpr ctx = downs ++ concatMap goDown downs
+   where downs     = goDown ctx
+         
 
 -- Computes the top-level expressions possible per step without duplicates.
 subExprS :: [Rule] -> Set.Set Expr -> [Expr] -> [[Expr]]
@@ -228,7 +206,7 @@ step (e, ze) e' = (e', ze)
 findCtx :: Expr -> Expr -> Maybe Ctx
 findCtx expr lhs | null candidates  = Nothing
                  | otherwise        = Just $ head candidates
-   where tops       = map toCtx $ concat $ subExprS [distR, evalR, assocR, assocbR, fracR] Set.empty [expr]
+   where tops       = map toCtx $ concat $ subExprS [distR, evalR] Set.empty [expr]
          subs       = tops ++ concatMap subExpr tops
          candidates = filter (\(e,ze) -> e == lhs) subs
 
@@ -259,7 +237,10 @@ data Line = Lhs Expr
 	  | Both Expr Expr
 type Program = [Line]
 
+opdr1 = Mul $ fromList [Con 32, sub, sub]
+    where sub = Add $ fromList [Con 1, Double (-0.25)]
 
+{-
 n_m :: Program
 n_m = [Both (Div (Con 32) (Con 4)) (Con 8),
        Both (Sub (Con 32) (Con 8)) (Con 24),
@@ -394,7 +375,7 @@ ex6cor = (opdr6, [uitw6_1])
 uitw6_1 :: Program
 uitw6_1 = [Both (Div (Con 600) (Con 800)) (Div (Con 3) (Con 4)),
            Both (Mul (Con 300) (Div (Con 3) (Con 4))) (Con 225)]
-
+           -}
 
 -- Process function
 process :: Expr -> Program -> IO ()
@@ -430,11 +411,12 @@ processmany exs = mapM_ doex exs
                                  process' opdr uitw
                                  putStrLn ("\n")
                         
-correct = processmany [ex1cor, ex2cor, ex3cor, ex4cor, ex5cor, ex6cor]    
+--correct = processmany [ex1cor, ex2cor, ex3cor, ex4cor, ex5cor, ex6cor]    
 
 ----------------------------------
 --          STRATEGY            --
 ----------------------------------
+{-
 suitable :: Expr -> [Expr]
 suitable e = candidates
 	where tops       = map toCtx $ concat $ take 2 $ subExprS [assocR, assocbR, evalR] Set.empty [e]
@@ -485,7 +467,7 @@ lineRule = I.describe "Execute a line from a program" $ I.makeRule "program.line
 		               in if [] == sorted then Nothing else performStep e (lhs, rhs)
 
 ------- Traversal
-{-
+
 addSymbol = I.newSymbol "add"
 subSymbol = I.newSymbol "subtract"
 mulSymbol = I.newSymbol "multiply"
@@ -507,7 +489,7 @@ instance I.IsTerm Expr where
 			f s [x, y] | s == subSymbol    = return (Sub x y)
 			f s [x, y] | s == mulSymbol    = return (Mul x y)
 			f s [x, y] | s == divSymbol    = return (Div x y)
-			f _ _ = fail "invalid expression"-}
+			f _ _ = fail "invalid expression"
 
 -------
 programStrat :: I.LabeledStrategy (I.Context Expr)
@@ -521,3 +503,5 @@ minimalExercise = I.emptyExercise
    , I.strategy      = programStrat
    , I.prettyPrinter = show
    }
+
+   -}
