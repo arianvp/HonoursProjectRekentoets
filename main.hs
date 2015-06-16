@@ -97,14 +97,14 @@ goDown (e, ze) = res e
             res (Add xs)   = let (single, combinations) = f $ toList xs
                                  single' = map (\([e], es) -> (e, AddI ze $ fromList es)) single
                                  comb'   = map (\(e, es) -> (Add $ fromList e, AddI ze $ fromList es)) combinations
-                             in single' 
+                             in comb' ++ single'
                                  --map (\es -> (Add $ fromList es, AddI (Add (fromList [Add $ fromList es] ++ ((toList xs) \\ es)), ze))) (snd $ f xs)
                            -- ++ map (\e' -> (e', AddI ze (remove e' xs))) (toList xs) -- Hammer time makes its easier
             res (Negate x) = [(x, NegI ze)]
             res (Mul xs)   = let (single, combinations) = f $ toList xs
                                  single' = map (\([e], es) -> (e, MulI ze $ fromList es)) single
                                  comb'   = map (\(e, es) -> (Mul $ fromList e, MulI ze $ fromList es)) combinations
-                             in comb'  ++ concatMap goDown single' 
+                             in comb' ++ single' 
                                  --map (\e' -> (e', MulI ze (remove e' xs))) $ concat $ nub $ filter (not . null) $ subsequences $ toList xs
             res (Div x)    = [(x, DivI ze)]
             res _          = []
