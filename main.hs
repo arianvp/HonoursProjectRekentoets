@@ -389,7 +389,7 @@ uitw5_1 = [ Both
 -}
            
            
-uitw5_2 :: Program 
+{-uitw5_2 :: Program 
 uitw5_2 = [Lhs (Double 8.5),
            Lhs (Double 0.75),
            Both (Mul (Con 4) (Double 8.5)) (Double 34.0),
@@ -415,6 +415,7 @@ uitw5_3 = [Lhs (Double 8.5),
 --opdr6 = Mul (Div (Con 600) (Con 800)) (Con 300)   
 opdr6 =  Mul $ fromList [ Div (Con 800), Con 600, Con 300]
 ex6cor = (opdr6, [uitw6_1])
+-}
 
 uitw6_1 :: Program
 uitw6_1 = [ Both
