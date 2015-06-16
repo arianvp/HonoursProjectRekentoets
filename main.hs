@@ -1,7 +1,7 @@
 module Main where
 
 import Data.Maybe
-import Data.List (subsequences, nub, (\\), partition)
+import Data.List (subsequences, nub, (\\), partition, intersperse)
 import qualified Data.Set as Set
 import qualified Data.Map as M
 import Data.Map (Map)
@@ -22,6 +22,10 @@ singleton a = Bag $ M.singleton a 1
 
 insert :: (Ord a) => a -> Bag a -> Bag a
 insert x (Bag map) = Bag $ M.insertWith (+) x 1 map
+
+insertList :: (Ord a) => [a] -> Bag a -> Bag a
+insertList []     bag       = bag
+insertList (x:xs) (Bag map) = insertList xs (Bag $ M.insertWith (+) x 1 map)
 
 remove :: (Ord a) => a -> Bag a -> Bag a
 remove a b@(Bag map) | isNothing value     = b
@@ -68,9 +72,9 @@ type Ctx = (Expr, ZExpr)
 
 instance Show Expr where
 	show (Con x)    = show x
-	show (Add xs)   = "( +: " ++ show (toList xs) ++ ")"
+	show (Add xs)   = "(" ++ (concat $ intersperse " + " (map show (toList xs))) ++ ")"
 	show (Negate x) = "-" ++ show x
-	show (Mul xs)   = "( *:" ++ show (toList xs) ++ ")"
+	show (Mul xs)   = "(" ++ (concat $ intersperse " * " (map show (toList xs))) ++ ")"
 	show (Div x)    = "1/" ++ show x
 	show (Double x) = show x
 
@@ -85,6 +89,11 @@ eval (Negate x) = 0.0 - eval x
 eval (Mul xs)   = product (map eval $ toList xs)
 eval (Div x)    = 1.0 / eval x
 eval (Double x) = x
+
+isConst :: Expr -> Bool
+isConst (Con _)    = True
+isConst (Double _) = True
+isConst _          = False
 
 -- Lift an expression to a zipper
 toCtx :: Expr -> Ctx
@@ -131,11 +140,19 @@ subs xs = partition g . map f . nonEmptySubsequences $ xs
 
 goUp :: Ctx -> Maybe Ctx
 goUp (e, ze) = res ze
-	where res (AddI ze' xs) = Just (Add (insert e xs), ze')
+	where res (AddI ze' xs) | isAdd e   = Just (Add (insertList (comps e) xs), ze')
+		                | otherwise = Just (Add (insert e xs), ze')
 	      res (NegI ze')    = Just (Negate e, ze')
-	      res (MulI ze' xs) = Just (Mul (insert e xs), ze')
+	      res (MulI ze' xs) | isMul e   = Just (Mul (insertList (comps e) xs), ze')
+		                | otherwise = Just (Mul (insert e xs), ze')
 	      res (DivI ze')    = Just (Div e, ze')
 	      res (Top)         = Nothing
+	      isAdd (Add _)     = True
+	      isAdd _           = False
+	      isMul (Mul _)     = True
+	      isMul _           = False
+	      comps (Add xs)    = toList xs
+	      comps (Mul xs)    = toList xs
 
 
 -- Unsafe shorthands for goLeft/goRight/goUp.
@@ -167,13 +184,35 @@ distR (Mul multies)   = map convert $ concatMap dist_optos addies
 distR _         = []
       
 evalR :: Rule
-evalR (Add xs)       = map (depends . sum)     $ map (map eval) $ filter (\seq -> length seq == 2) $ subsequences $ toList xs 
-evalR (Mul xs)       = map (depends . product) $ map (map eval) $ filter (\seq -> length seq == 2) $ subsequences $ toList xs 
-evalR _              = []
+evalR x       = f x
+	where f (Add xs)   | length (toList xs) == 2 = compute sum     $ candids xs
+	                   | otherwise               = map (\x -> Add  $ fromList ((depends $ sum $ map eval x) : (toList xs \\ x))) $ candids xs
+	      f (Mul xs)   | length (toList xs) == 2 = compute product $ candids xs
+	                   | otherwise               = map (\x -> Mul  $ fromList ((depends $ product $ map eval x) : (toList xs \\ x))) $ candids xs
+	      f _          = []
+	      compute :: ([Double] -> Double) -> [[Expr]] -> [Expr]
+	      compute f xs = map (depends . f) $ map (map eval) xs
+	      candids xs   = filter (\seq -> length seq == 2) $ subsequences $ filter isConst $ toList xs
 
+depends :: Double -> Expr
 depends x = if integral then Con (round x) else Double x
 	where integral = x == fromIntegral (round x)
 
+
+neg2subR :: Rule
+neg2subR (Add xs)              = if negatives then [Negate (Add flipped)] else []
+	where negatives        = any (\x -> isConst x && eval x <= 0) $ toList xs
+	      flipped          = fromList $ map flipE $ toList xs
+	      flipE (Con x)    = (Con (0 - x))
+	      flipE (Double x) = (Double (0.0 - x))
+	      flipE x          = Negate x
+neg2subR (Mul xs)              = if negatives then [Negate (Mul flipped)] else []
+	where negatives        = any (\x -> isConst x && eval x <= 0) $ toList xs
+	      flipped          = fromList $ map flipE $ toList xs
+	      flipE (Con x)    = (Con (0 - x))
+	      flipE (Double x) = (Double (0.0 - x))
+	      flipE x          = Negate x
+neg2subR _              = []
 {-
 fracR :: Rule
 fracR (Double x)        | nice      = Just $ Mul $Div (Con (n `div` diver)) (Con (10000 `div` diver))
@@ -459,7 +498,7 @@ process e ((Both lhs rhs):xs)  =
                 case e' of
                      Nothing -> putStrLn ("\tFail")
                      _       -> if (fromJust e') == e then
-                                   do putStrLn ("\tIgnored")
+                                   do putStrLn ("\tIgnored:" ++ show e)
                                       process e xs
                                 else
                                    do putStrLn ("\t" ++ show e')
@@ -488,11 +527,6 @@ suitable e = candidates
 	where tops       = map toCtx $ concat $ take 2 $ subExprS [assocR, assocbR, evalR] Set.empty [e]
 	      subs       = tops ++ concatMap subExpr tops
 	      candidates = map fst $ filter (\(e,ze) -> simple e) subs
-
-constant :: Expr -> Bool
-constant (Con _)    = True
-constant (Double _) = True
-constant _          = False
 
 simple :: Expr -> Bool
 simple (Add x y)    = constant x && constant y
