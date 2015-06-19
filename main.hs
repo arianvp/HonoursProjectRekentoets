@@ -190,14 +190,21 @@ normalise1 e@(Mul _) = normaliseAssocRule isMul Mul (\ (Mul b) -> b) e
 normalise1 (Negate e) = (Negate $ normalise1 e)
 normalise1 (Div e)    = (Div $ normalise1 e)
 normalise1 e = e
-normalise2 e@(Add xs) = Add $ fromList $ map normalise2 (toList xs)
-normalise2 e@(Mul xs) = Mul $ fromList $ map normalise2 (toList xs)
+normalise2 e@(Add xs) = Add $ fromList $ filter (filterExpr 0) $ map normalise2 (toList xs)
+normalise2 e@(Mul xs) = Mul $ fromList $ filter (filterExpr 1) $ map normalise2 (toList xs)
 normalise2 (Negate (Negate e)) = normalise2 e
 normalise2 (Negate (Con x))    = Con    (negate x)
 normalise2 (Negate (Double x)) = Double (negate x)
-normalise2 (Negate e) = (Negate $ normalise2 e)
-normalise2 (Div e)    = (Div $ normalise2 e)
+normalise2 (Negate e)          = (Negate $ normalise2 e)
+normalise2 (Div (Con x))       = Double (1.0 / fromIntegral x)
+normalise2 (Div (Double x))    = depends $ 1.0 / x
+normalise2 (Div e)             = (Div $ normalise2 e)
 normalise2 e = e
+
+filterExpr :: Integer -> Expr -> Bool
+filterExpr ido expr = not (isConst expr) || check expr
+    where check (Con x)    = (toInteger x) /= ido
+          check (Double x) = x /= fromInteger ido
 
 -- Given an associative rule (determined by a rule matcher, a constructor
 -- and an extractor (for the contained bag)) and an expression, normalises  
@@ -271,25 +278,26 @@ depends x = if integral then Con (round x) else Double x
 
 
 neg2subR :: Rule
-neg2subR (Add xs)              = if negatives then [Negate (Add flipped)] else []
-    where negatives        = any (\x -> (isConst x && eval x <= 0) || isNeg x) $ toList xs
+neg2subR (Add xs)          = if negatives then [Negate (Add flipped)] else []
+    where negatives        = any (\x -> (isConst x && eval x < 0) || isNeg x) $ toList xs
           flipped          = fromList $ map flipE $ toList xs
           flipE (Con x)    = (Con (0 - x))
           flipE (Double x) = (Double (0.0 - x))
           flipE (Negate x) = x
           flipE x          = Negate x
-neg2subR (Mul xs)              = if negatives then [Negate (Mul flipped)] else []
-    where negatives        = any (\x -> (isConst x && eval x <= 0) || isNeg x) $ toList xs
+neg2subR (Mul xs)          = if length negatives == 0 then [] else map convert negatives
+    where negatives        = filter (\x -> (isConst x && eval x < 0) || isNeg x) $ toList xs
           flipped          = fromList $ map flipE $ toList xs
           flipE (Con x)    = (Con (0 - x))
           flipE (Double x) = (Double (0.0 - x))          
           flipE (Negate x) = x
-          flipE x          = Negate x
+          convert e        = Negate $ Mul $ fromList $ (flipE e) : (toList xs \\ [e])
 neg2subR _              = []
 
 
 fracR :: Rule
-fracR (Double x)        | nice                         = [Mul $ fromList [Con (n `div` diver), Div (Con (10000 `div` diver))]]
+fracR (Double x)        
+            | nice && abs (n `div` diver) /= 1 = [Mul $ fromList [Con (n `div` diver), Div (Con (10000 `div` diver))]]
             | otherwise                    = []
     where n       = round (x * 10000)
           nice    = fromIntegral n / 10000 == x
@@ -316,7 +324,7 @@ subExprS rs set xs     = let newSet = Set.union nextLayer set
                          in  xs : subExprS rs newSet nextLayerL
     where subs            = ctxXS ++ concatMap subExpr ctxXS
           transformedExpr = concatMap (\e -> concatMap (\r -> r e) (map apply rs)) subs
-          nextLayer       = Set.difference (Set.fromList (map (normalise . normalise . normalise . getFullExpr) transformedExpr)) set
+          nextLayer       = Set.difference (Set.fromList (map (normalise . getFullExpr) transformedExpr)) set
           nextLayerL      = Set.toList nextLayer
           ctxXS           = map toCtx xs   
 
