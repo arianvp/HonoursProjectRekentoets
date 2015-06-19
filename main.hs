@@ -76,10 +76,6 @@ isAdd _ = False
 isMul (Mul _) = True
 isMul _ = False
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 5171ac9bfbb84944ca9df2cb86dee82fae018bef
 instance Show Expr where
     show (Con x)    = show x
     show (Add xs)   = "(" ++ (concat $ intersperse " + " (map show (toList xs))) ++ ")"
@@ -87,11 +83,8 @@ instance Show Expr where
     show (Mul xs)   = "(" ++ (concat $ intersperse " * " (map show (toList xs))) ++ ")"
     show (Div x)    = "1/" ++ show x
     show (Double x) = show x
-<<<<<<< HEAD
 
-=======
-    
->>>>>>> 5171ac9bfbb84944ca9df2cb86dee82fae018bef
+
 ----------------------------------
 --      DATASTRUCTS FUNCS       --
 ----------------------------------
