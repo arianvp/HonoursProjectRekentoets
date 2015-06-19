@@ -184,16 +184,18 @@ normalise e@(Add _) = normaliseAssocRule isAdd Add (\ (Add b) -> b) e
 normalise e@(Mul _) = normaliseAssocRule isMul Mul (\ (Mul b) -> b) e
 normalise e = e
 
--- RuleMatcher, Constructor (from bag), Extractor (to bag), Expression
+-- Given an associative rule (determined by a rule matcher, a constructor,
+-- an extractor (for the contained bag)) and an expression, normalises all 
+-- sub expressions, then flattens all occurences of the 
 -- (because who wants to write duplicate functions for Add and Mul?!?)
 normaliseAssocRule :: (Expr -> Bool) -> ((Bag Expr) -> Expr) -> (Expr -> (Bag Expr)) -> Expr -> Expr
 normaliseAssocRule match construct extract e
         | (length asList == 1) = asList !! 0   -- normalisation has already happened
-        | otherwise            = construct $ fromList $ concat allOthers
+        | otherwise            = construct $ fromList allOthers
     where asList = map normalise $ toList $ extract e
           others = filter match asList
           getList = (\ b -> toList (extract b) )
-          allOthers = [(asList \\ others)] ++ (map getList others)
+          allOthers = (asList \\ others) ++ (concatMap getList others)
 
 -- Short test
 norm_test :: Expr
