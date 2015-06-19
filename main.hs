@@ -76,6 +76,10 @@ isAdd _ = False
 isMul (Mul _) = True
 isMul _ = False
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5171ac9bfbb84944ca9df2cb86dee82fae018bef
 instance Show Expr where
     show (Con x)    = show x
     show (Add xs)   = "(" ++ (concat $ intersperse " + " (map show (toList xs))) ++ ")"
@@ -83,7 +87,11 @@ instance Show Expr where
     show (Mul xs)   = "(" ++ (concat $ intersperse " * " (map show (toList xs))) ++ ")"
     show (Div x)    = "1/" ++ show x
     show (Double x) = show x
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 5171ac9bfbb84944ca9df2cb86dee82fae018bef
 ----------------------------------
 --      DATASTRUCTS FUNCS       --
 ----------------------------------
@@ -101,6 +109,9 @@ isConst (Con _)    = True
 isConst (Double _) = True
 isConst _          = False
 
+isNeg (Negate x) = True
+isNeg _          = False
+      
 -- Lift an expression to a zipper
 toCtx :: Expr -> Ctx
 toCtx e = (e, Top)
@@ -268,16 +279,18 @@ depends x = if integral then Con (round x) else Double x
 
 neg2subR :: Rule
 neg2subR (Add xs)              = if negatives then [Negate (Add flipped)] else []
-    where negatives        = any (\x -> isConst x && eval x <= 0) $ toList xs
+    where negatives        = any (\x -> (isConst x && eval x <= 0) || isNeg x) $ toList xs
           flipped          = fromList $ map flipE $ toList xs
           flipE (Con x)    = (Con (0 - x))
           flipE (Double x) = (Double (0.0 - x))
+          flipE (Negate x) = x
           flipE x          = Negate x
 neg2subR (Mul xs)              = if negatives then [Negate (Mul flipped)] else []
-    where negatives        = any (\x -> isConst x && eval x <= 0) $ toList xs
+    where negatives        = any (\x -> (isConst x && eval x <= 0) || isNeg x) $ toList xs
           flipped          = fromList $ map flipE $ toList xs
           flipE (Con x)    = (Con (0 - x))
-          flipE (Double x) = (Double (0.0 - x))
+          flipE (Double x) = (Double (0.0 - x))          
+          flipE (Negate x) = x
           flipE x          = Negate x
 neg2subR _              = []
 
@@ -294,7 +307,7 @@ fracR _                  = []
 apply :: Rule -> Ctx -> [Ctx]
 apply r (e, ze) = map (\x -> (x, ze)) $ r e
 
-
+rules = [distR, evalR, neg2subR, fracR]
 ----------------------------------
 --          SUB-EXPR            --
 ----------------------------------
@@ -310,7 +323,7 @@ subExprS rs set xs     = let newSet = Set.union nextLayer set
                          in  xs : subExprS rs newSet nextLayerL
     where subs            = ctxXS ++ concatMap subExpr ctxXS
           transformedExpr = concatMap (\e -> concatMap (\r -> r e) (map apply rs)) subs
-          nextLayer       = Set.difference (Set.fromList (map (normalise . getFullExpr) transformedExpr)) set
+          nextLayer       = Set.difference (Set.fromList (map (normalise . normalise . normalise . getFullExpr) transformedExpr)) set
           nextLayerL      = Set.toList nextLayer
           ctxXS           = map toCtx xs   
 
