@@ -172,7 +172,7 @@ getFullExpr ctx      = getFullExpr $ goUpU ctx -- Unsafely go up, should work si
 
 
 {-  Forces an expression into normal form
-    In particular, the following things have to be fixed:
+    In particular, the following things are fixed:
         - Remove double negations
         - Additions contained in additions should be flattened
         - Multiplications in multiplications should be flattened
@@ -184,9 +184,9 @@ normalise e@(Add _) = normaliseAssocRule isAdd Add (\ (Add b) -> b) e
 normalise e@(Mul _) = normaliseAssocRule isMul Mul (\ (Mul b) -> b) e
 normalise e = e
 
--- Given an associative rule (determined by a rule matcher, a constructor,
--- an extractor (for the contained bag)) and an expression, normalises all 
--- sub expressions, then flattens all occurences of the 
+-- Given an associative rule (determined by a rule matcher, a constructor
+-- and an extractor (for the contained bag)) and an expression, normalises  
+-- all sub expressions, then flattens all occurences of the rule.
 -- (because who wants to write duplicate functions for Add and Mul?!?)
 normaliseAssocRule :: (Expr -> Bool) -> ((Bag Expr) -> Expr) -> (Expr -> (Bag Expr)) -> Expr -> Expr
 normaliseAssocRule match construct extract e
