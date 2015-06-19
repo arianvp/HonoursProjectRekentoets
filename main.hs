@@ -57,7 +57,7 @@ data Expr = Con Int
       | Mul (Bag Expr)
       | Div Expr
       | Double Double
-     deriving (Eq, Show, Read, Ord)
+     deriving (Eq, Read, Ord)
 -- Zipper data type
 data ZExpr = 
         AddI   ZExpr (Bag Expr)
@@ -76,7 +76,6 @@ isAdd _ = False
 isMul (Mul _) = True
 isMul _ = False
 
-{-
 instance Show Expr where
     show (Con x)    = show x
     show (Add xs)   = "(" ++ (concat $ intersperse " + " (map show (toList xs))) ++ ")"
@@ -84,7 +83,7 @@ instance Show Expr where
     show (Mul xs)   = "(" ++ (concat $ intersperse " * " (map show (toList xs))) ++ ")"
     show (Div x)    = "1/" ++ show x
     show (Double x) = show x
-    -}
+
 ----------------------------------
 --      DATASTRUCTS FUNCS       --
 ----------------------------------
@@ -92,7 +91,7 @@ instance Show Expr where
 eval :: Expr -> Double
 eval (Con x)    = fromIntegral x
 eval (Add xs)   = sum (map eval $ toList xs)
-eval (Negate x) = 0.0 - eval x
+eval (Negate x) = negate $ eval x
 eval (Mul xs)   = product (map eval $ toList xs)
 eval (Div x)    = 1.0 / eval x
 eval (Double x) = x
@@ -180,12 +179,21 @@ getFullExpr ctx      = getFullExpr $ goUpU ctx -- Unsafely go up, should work si
         - Singleton multiplications/additions should be flattened
  -}
 normalise :: Expr -> Expr
-normalise (Negate (Negate e)) = normalise e
-normalise e@(Add _) = normaliseAssocRule isAdd Add (\ (Add b) -> b) e
-normalise e@(Mul _) = normaliseAssocRule isMul Mul (\ (Mul b) -> b) e
-normalise (Negate (Con x))    = Con    (negate x)
-normalise (Negate (Double x)) = Double (negate x)
-normalise e = e
+normalise = normalise2 . normalise1
+
+normalise1 e@(Add _) = normaliseAssocRule isAdd Add (\ (Add b) -> b) e
+normalise1 e@(Mul _) = normaliseAssocRule isMul Mul (\ (Mul b) -> b) e
+normalise1 (Negate e) = (Negate $ normalise1 e)
+normalise1 (Div e)    = (Div $ normalise1 e)
+normalise1 e = e
+normalise2 e@(Add xs) = Add $ fromList $ map normalise2 (toList xs)
+normalise2 e@(Mul xs) = Mul $ fromList $ map normalise2 (toList xs)
+normalise2 (Negate (Negate e)) = normalise2 e
+normalise2 (Negate (Con x))    = Con    (negate x)
+normalise2 (Negate (Double x)) = Double (negate x)
+normalise2 (Negate e) = (Negate $ normalise2 e)
+normalise2 (Div e)    = (Div $ normalise2 e)
+normalise2 e = e
 
 -- Given an associative rule (determined by a rule matcher, a constructor
 -- and an extractor (for the contained bag)) and an expression, normalises  
@@ -195,7 +203,7 @@ normaliseAssocRule :: (Expr -> Bool) -> ((Bag Expr) -> Expr) -> (Expr -> (Bag Ex
 normaliseAssocRule match construct extract e
         | (length asList == 1) = asList !! 0   -- normalisation has already happened
         | otherwise            = construct $ fromList allOthers
-    where asList = map normalise $ toList $ extract e
+    where asList = map normalise1 $ toList $ extract e
           others = filter match asList
           getList = (\ b -> toList (extract b) )
           allOthers = (asList \\ others) ++ (concatMap getList others)
