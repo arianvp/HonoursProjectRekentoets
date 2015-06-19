@@ -27,12 +27,15 @@ insertList :: (Ord a) => [a] -> Bag a -> Bag a
 insertList []     bag       = bag
 insertList (x:xs) (Bag map) = insertList xs (Bag $ M.insertWith (+) x 1 map)
 
+union :: (Ord a) => Bag a -> Bag a -> Bag a
+union (Bag x) (Bag y) = Bag $ foldr (\(k,v) map -> M.insertWith (+) k v map) x (M.assocs y)
+
 remove :: (Ord a) => a -> Bag a -> Bag a
 remove a b@(Bag map) | isNothing value     = b
                      | fromJust value <= 1 = Bag $ M.delete a map
                      | otherwise           = Bag $ M.insertWith (flip (-)) a 1 map
     where value = M.lookup a map
-
+    
 fromList :: (Ord a) => [a] -> Bag a
 fromList = foldl f empty
     where
@@ -103,6 +106,7 @@ isConst (Double _) = True
 isConst (Negate x) = isConst x
 isConst _          = False
 
+isNeg :: Expr -> Bool
 isNeg (Negate x) = True
 isNeg _          = False
       
@@ -126,18 +130,11 @@ goDown (e, ze) = res e
             res (Div x)    = [(x, DivI ze)]
             res _          = []
             f              = subs
-            
-nonEmptySubExpr         :: [Expr] -> [([Expr],[Expr])]
-nonEmptySubExpr []          =  []
-nonEmptySubExpr (x: xs) =  ([x], xs) : foldr f [] (nonEmptySubExpr xs)
-    where f (b, bs) r = (b, x : bs) : (x : b, bs) : r
 
 nonEmptySubsequences         :: [a] -> [[a]]
 nonEmptySubsequences []      =  []
 nonEmptySubsequences (x:xs)  =  [x] : foldr f [] (nonEmptySubsequences xs)
   where f ys r = ys : (x : ys) : r
-          
-
 
 subs xs = partition g . map f . nonEmptySubsequences $ xs
   where f ys = (ys, xs\\ys)
@@ -147,10 +144,10 @@ subs xs = partition g . map f . nonEmptySubsequences $ xs
 goUp :: Ctx -> Maybe Ctx
 goUp (e, ze) = res ze
     where res (AddI ze' xs) | isAdd e   = Just (Add (insertList (comps e) xs), ze')
-                        | otherwise = Just (Add (insert e xs), ze')
+                            | otherwise = Just (Add (insert e xs), ze')
           res (NegI ze')    = Just (Negate e, ze')
           res (MulI ze' xs) | isMul e   = Just (Mul (insertList (comps e) xs), ze')
-                        | otherwise = Just (Mul (insert e xs), ze')
+                            | otherwise = Just (Mul (insert e xs), ze')
           res (DivI ze')    = Just (Div e, ze')
           res (Top)         = Nothing
           isAdd (Add _)     = True
@@ -168,7 +165,7 @@ goUpU = fromJust . goUp
 -- Note: this does not include the ctx itself
 trailUp :: Ctx -> [Ctx]
 trailUp ctx | goUp ctx == Nothing = []
-        | otherwise           = up : trailUp up
+            | otherwise           = up : trailUp up
     where up = fromJust $ goUp ctx
 
 getFullExpr :: Ctx -> Expr
@@ -270,7 +267,7 @@ distR _         = []
 evalR :: Rule
 evalR x       = f x
     where f (Add xs)   | length (toList xs) == 2 = compute sum     $ candids xs
-                       | otherwise               = map (\x -> Add  $ fromList ((depends $ sum $ map eval x) : (toList xs \\ x))) $ candids xs
+                       | otherwise               = map (\x -> Add  $ fromList ((depends $ sum     $ map eval x) : (toList xs \\ x))) $ candids xs
           f (Mul xs)   | length (toList xs) == 2 = compute product $ candids xs
                        | otherwise               = map (\x -> Mul  $ fromList ((depends $ product $ map eval x) : (toList xs \\ x))) $ candids xs
           f _          = []
@@ -333,7 +330,14 @@ subExprS rs set xs     = let newSet = Set.union nextLayer set
           nextLayer       = Set.difference (Set.fromList (map (normalise . getFullExpr) transformedExpr)) set
           nextLayerL      = Set.toList nextLayer
           ctxXS           = map toCtx xs   
-
+          
+subExprQ :: [Rule] -> [Expr] -> [[Expr]]
+subExprQ rs []     = []
+subExprQ rs xs     = xs : subExprQ rs nextLayer
+    where subs            = ctxXS ++ concatMap subExpr ctxXS
+          transformedExpr = concatMap (\e -> concatMap (\r -> r e) (map apply rs)) subs
+          nextLayer       = map (normalise . getFullExpr) transformedExpr
+          ctxXS           = map toCtx xs   
 ----------------------------------
 --          STEPS               --
 ----------------------------------
@@ -343,14 +347,16 @@ step :: Ctx -> Expr -> Ctx
 step (e, ze) e' = (e', ze)
 
 -- Finds a context that matches the lhs of an equal
-findCtx :: Expr -> Expr -> Maybe Ctx
-findCtx expr lhs | null candidates  = Nothing
-                 | otherwise        = Just $ head candidates
-   where tops       = map toCtx $ concat $ subExprS [distR, evalR, neg2subR, fracR] Set.empty [expr]
+findCtx :: Expr -> Expr -> [Ctx]
+findCtx expr lhs | null candidates  = []
+                 | otherwise        = candidates
+   where tops       = map toCtx $ concat $ take 8 $ subExprS [distR, evalR, neg2subR, fracR] Set.empty [expr]
          subs       = tops ++ concatMap subExpr tops
          candidates = filter (\(e,ze) -> e == lhs) subs
 
-
+rawTerms :: Expr -> [Ctx]
+rawTerms expr = filter (\(e,ze) -> isConst e) $ subExpr (toCtx expr)
+         
 type Equal = (Expr, Expr)
 performStep :: Expr -> Equal -> Maybe Expr
 performStep e (lhs, rhs) | checkEqual = case ctx of
@@ -358,14 +364,14 @@ performStep e (lhs, rhs) | checkEqual = case ctx of
                          _       -> Just $ getFullExpr $ step (fromJust ctx) rhs
              | otherwise  = Nothing
     where checkEqual = eval lhs == eval rhs
-          ctx        = findCtx e lhs
+          ctx        = let ctxs = findCtx e lhs in if null ctxs then Nothing else Just $ head ctxs
 
 -- Given only an expression, find the steps.
 performHalfStep :: Expr -> Expr -> Maybe Expr
 performHalfStep e lhs = case ctx of
                 Nothing -> Nothing
                 _       -> Just $ getFullExpr $ fromJust ctx
-    where ctx        = findCtx e lhs
+    where ctx        = let ctxs = findCtx e lhs in if null ctxs then Nothing else Just $ head ctxs
 
 
 
@@ -376,9 +382,6 @@ performHalfStep e lhs = case ctx of
 data Line = Lhs Expr 
       | Both Expr Expr
 type Program = [Line]
-
-small :: Expr
-small = Mul $ fromList [Con 3, Add $ fromList [Con 5, Div (Con 3)]]
 
 {-
 n_m :: Program
@@ -405,7 +408,7 @@ opdr1 = Mul $ fromList [(Con 32) , sub, sub]
 ex1cor = (opdr1, [uitw1_1, uitw1_2, uitw1_3, uitw1_4, uitw1_5])
     
 uitw1_1 :: Program
-uitw1_1 = [Both (Mul $ fromList [Div (Con 4) ,(Con 32)]) (Con 8),
+uitw1_1 = [Both (Mul $ fromList [Double 0.25 ,(Con 32)]) (Con 8),
      Both (Add $ fromList [(Con 32), (Con (-8))]) (Con 24),
      Both (Mul $ fromList [Div (Con 4), (Con 24)]) (Con 6),
      Both (Add $ fromList [(Con 24), (Con (-6))]) (Con 18)]
