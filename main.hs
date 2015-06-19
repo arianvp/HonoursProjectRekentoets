@@ -100,6 +100,7 @@ eval (Double x) = x
 isConst :: Expr -> Bool
 isConst (Con _)    = True
 isConst (Double _) = True
+isConst (Negate x) = isConst x
 isConst _          = False
 
 isNeg (Negate x) = True
@@ -185,19 +186,23 @@ getFullExpr ctx      = getFullExpr $ goUpU ctx -- Unsafely go up, should work si
 normalise :: Expr -> Expr
 normalise = normalise2 . normalise1
 
+-- normalization pass flattening nested adds and muls
 normalise1 e@(Add _) = normaliseAssocRule isAdd Add (\ (Add b) -> b) e
 normalise1 e@(Mul _) = normaliseAssocRule isMul Mul (\ (Mul b) -> b) e
 normalise1 (Negate e) = (Negate $ normalise1 e)
 normalise1 (Div e)    = (Div $ normalise1 e)
 normalise1 e = e
-normalise2 e@(Add xs) = Add $ fromList $ map normalise2 (toList xs)
-normalise2 e@(Mul xs) = Mul $ fromList $ map normalise2 (toList xs)
+
+-- normalization pass flattening double negations and negative constants
+normalise2 (Add xs) = Add $ fromList $ map normalise2 (toList xs)
+normalise2 (Mul xs) = Mul $ fromList $ map normalise2 (toList xs)
 normalise2 (Negate (Negate e)) = normalise2 e
-normalise2 (Negate (Con x))    = Con    (negate x)
-normalise2 (Negate (Double x)) = Double (negate x)
 normalise2 (Negate e) = (Negate $ normalise2 e)
 normalise2 (Div e)    = (Div $ normalise2 e)
-normalise2 e = e
+normalise2 (Con x)    | x < 0     = Negate (Con (negate x))
+                      | otherwise = Con x
+normalise2 (Double x) | x < 0     = Negate (Double (negate x))
+                      | otherwise = Double x
 
 -- Given an associative rule (determined by a rule matcher, a constructor
 -- and an extractor (for the contained bag)) and an expression, normalises  
