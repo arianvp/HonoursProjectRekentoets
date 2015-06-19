@@ -57,7 +57,7 @@ data Expr = Con Int
       | Mul (Bag Expr)
       | Div Expr
       | Double Double
-     deriving (Eq, Read, Ord)
+     deriving (Eq, Show, Read, Ord)
 -- Zipper data type
 data ZExpr = 
         AddI   ZExpr (Bag Expr)
@@ -76,6 +76,7 @@ isAdd _ = False
 isMul (Mul _) = True
 isMul _ = False
 
+{-
 instance Show Expr where
     show (Con x)    = show x
     show (Add xs)   = "(" ++ (concat $ intersperse " + " (map show (toList xs))) ++ ")"
@@ -83,7 +84,7 @@ instance Show Expr where
     show (Mul xs)   = "(" ++ (concat $ intersperse " * " (map show (toList xs))) ++ ")"
     show (Div x)    = "1/" ++ show x
     show (Double x) = show x
-
+    -}
 ----------------------------------
 --      DATASTRUCTS FUNCS       --
 ----------------------------------
@@ -182,6 +183,8 @@ normalise :: Expr -> Expr
 normalise (Negate (Negate e)) = normalise e
 normalise e@(Add _) = normaliseAssocRule isAdd Add (\ (Add b) -> b) e
 normalise e@(Mul _) = normaliseAssocRule isMul Mul (\ (Mul b) -> b) e
+normalise (Negate (Con x))    = Con    (negate x)
+normalise (Negate (Double x)) = Double (negate x)
 normalise e = e
 
 -- Given an associative rule (determined by a rule matcher, a constructor
@@ -299,7 +302,7 @@ subExprS rs set xs     = let newSet = Set.union nextLayer set
                          in  xs : subExprS rs newSet nextLayerL
     where subs            = ctxXS ++ concatMap subExpr ctxXS
           transformedExpr = concatMap (\e -> concatMap (\r -> r e) (map apply rs)) subs
-          nextLayer       = Set.difference (Set.fromList (map getFullExpr transformedExpr)) set
+          nextLayer       = Set.difference (Set.fromList (map (normalise . getFullExpr) transformedExpr)) set
           nextLayerL      = Set.toList nextLayer
           ctxXS           = map toCtx xs   
 
@@ -345,6 +348,9 @@ performHalfStep e lhs = case ctx of
 data Line = Lhs Expr 
       | Both Expr Expr
 type Program = [Line]
+
+small :: Expr
+small = Mul $ fromList [Con 3, Add $ fromList [Con 5, Div (Con 3)]]
 
 {-
 n_m :: Program
