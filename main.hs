@@ -228,19 +228,6 @@ norm_test = Add $ fromList [
             ]
 
 
-{-
--- Expression data type
-data Expr = Con Int
-      | Add (Bag Expr)
-      | Negate Expr
-      | Mul (Bag Expr)
-      | Div Expr
-      | Double Double
-     deriving (Eq, Read, Ord)
--}
-
-
-
 ----------------------------------
 --          RULES               --
 ----------------------------------
