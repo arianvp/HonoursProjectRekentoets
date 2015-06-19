@@ -188,16 +188,12 @@ normalise e = e
 -- (because who wants to write duplicate functions for Add and Mul?!?)
 normaliseAssocRule :: (Expr -> Bool) -> ((Bag Expr) -> Expr) -> (Expr -> (Bag Expr)) -> Expr -> Expr
 normaliseAssocRule match construct extract e
-        | (length asList == 1) = normalise $ asList !! 0
-        | otherwise            = construct $ fromList $ flatten allOthers
+        | (length asList == 1) = asList !! 0   -- normalisation has already happened
+        | otherwise            = construct $ fromList $ concat allOthers
     where asList = map normalise $ toList $ extract e
           others = filter match asList
           getList = (\ b -> toList (extract b) )
           allOthers = [(asList \\ others)] ++ (map getList others)
-
--- Flattens a list
-flatten :: [[a]] -> [a]
-flatten = concatMap id
 
 -- Short test
 norm_test :: Expr
