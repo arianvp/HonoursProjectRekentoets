@@ -1,7 +1,7 @@
 module Main where
 
 import Data.Maybe
-import Data.List (subsequences, nub, (\\), partition, intersperse)
+import Data.List (subsequences, nub, (\\), partition, intersperse, sortBy)
 import qualified Data.Set as Set
 import qualified Data.Map as M
 import Data.Map (Map)
@@ -29,6 +29,14 @@ insertList (x:xs) (Bag map) = insertList xs (Bag $ M.insertWith (+) x 1 map)
 
 union :: (Ord a) => Bag a -> Bag a -> Bag a
 union (Bag x) (Bag y) = Bag $ foldr (\(k,v) map -> M.insertWith (+) k v map) x (M.assocs y)
+
+size :: Bag a -> Int
+size (Bag map) = sum $ M.elems map 
+
+isSingleton :: (Ord a) => Bag a -> Bool
+isSingleton (Bag map) = checkVal $ M.elems map
+    where checkVal [v] = v == 1
+          checkVal _   = False
 
 remove :: (Ord a) => a -> Bag a -> Bag a
 remove a b@(Bag map) | isNothing value     = b
@@ -63,9 +71,9 @@ data Expr = Con Int
      deriving (Eq, Read, Ord)
 -- Zipper data type
 data ZExpr = 
-        AddI   ZExpr (Bag Expr)
+        AddI   ZExpr [Expr]
        | NegI   ZExpr
-       | MulI   ZExpr (Bag Expr)
+       | MulI   ZExpr [Expr]
        | DivI   ZExpr
        | Top
       deriving (Eq, Show, Read)
@@ -82,7 +90,7 @@ isMul _ = False
 instance Show Expr where
     show (Con x)    = show x
     show (Add xs)   = "(" ++ (concat $ intersperse " + " (map show (toList xs))) ++ ")"
-    show (Negate x) = "-" ++ show x
+    show (Negate x) = "-[" ++ show x ++ "]"
     show (Mul xs)   = "(" ++ (concat $ intersperse " * " (map show (toList xs))) ++ ")"
     show (Div x)    = "1/" ++ show x
     show (Double x) = show x
@@ -114,22 +122,49 @@ isNeg _          = False
 toCtx :: Expr -> Ctx
 toCtx e = (e, Top)
 
+small :: Expr
+small = Mul $ fromList [Con 2, Con 3, Con 4, Con 5, Add $ fromList [Con 4, Con 9]]
+
+{-
 goDown :: Ctx -> [Ctx]
 goDown (e, ze) = res e
     where 
             res :: Expr -> [Ctx]
-            res (Add xs)   = let (single, combinations) = f $ toList xs
-                                 single' = map (\([e], es) -> (e, AddI ze $ fromList es)) single
-                                 comb'   = map (\(e, es) -> (Add $ fromList e, AddI ze $ fromList es)) combinations
+            res (Add xs)   | length (toList xs) > 2    = map (\x -> (Add $ fromList (toList xs \\ [x]), AddI ze $ fromList [x])) $ toListU xs
+			   | length (toList xs) < 2    = []
+			   | otherwise                 = [(head $ toList xs, AddI ze $ fromList [toList xs !! 1]), (flip (!!) 1 $ toList xs, AddI ze $ fromList [head $ toList xs])]
+            res (Negate x) = [(x, NegI ze)]
+            res (Mul xs)   | length (toList xs) > 2    = map (\x -> (Mul $ fromList (toList xs \\ [x]), MulI ze $ fromList [x])) $ toListU xs
+			   | length (toList xs) < 2    = []
+			   | otherwise                 = [(head $ toList xs, MulI ze $ fromList [toList xs !! 1]), (flip (!!) 1 $ toList xs, MulI ze $ fromList [head $ toList xs])]
+            res (Div x)    = [(x, DivI ze)]
+            res _          = []
+            -}
+
+goDown :: Ctx -> [Ctx]
+goDown (e, ze) = res e
+    where 
+            res :: Expr -> [Ctx]
+            res (Add xs)   | isAddI ze = []
+                           | otherwise =
+                             let (single, combinations) = subs $ toList xs
+                                 single' = map (\([e], es) -> (e,                AddI ze es)) single
+                                 comb'   = map (\(e,   es) -> (Add $ fromList e, AddI ze es)) combinations
                              in comb' ++ single'
             res (Negate x) = [(x, NegI ze)]
-            res (Mul xs)   = let (single, combinations) = f $ toList xs
-                                 single' = map (\([e], es) -> (e, MulI ze $ fromList es)) single
-                                 comb'   = map (\(e, es) -> (Mul $ fromList e, MulI ze $ fromList es)) combinations
+            res (Mul xs)   | isMulI ze = []
+                           | otherwise =
+                             let (single, combinations) = subs $ toList xs
+                                 single' = map (\([e], es) -> (e,                MulI ze es)) single
+                                 comb'   = map (\(e,   es) -> (Mul $ fromList e, MulI ze es)) combinations
                              in comb' ++ single' 
             res (Div x)    = [(x, DivI ze)]
             res _          = []
-            f              = subs
+            isAddI (AddI _ _) = True
+            isAddI _          = False
+            isMulI (MulI _ _) = True
+            isMulI _          = False
+
 
 nonEmptySubsequences         :: [a] -> [[a]]
 nonEmptySubsequences []      =  []
@@ -139,34 +174,28 @@ nonEmptySubsequences (x:xs)  =  [x] : foldr f [] (nonEmptySubsequences xs)
 subs xs = partition g . map f . nonEmptySubsequences $ xs
   where f ys = (ys, xs\\ys)
         g ([_],_) = True
-        g _ = False
+        g _       = False
 
 goUp :: Ctx -> Maybe Ctx
 goUp (e, ze) = res ze
-    where res (AddI ze' xs) | isAdd e   = Just (Add (insertList (comps e) xs), ze')
-                            | otherwise = Just (Add (insert e xs), ze')
+    where res (AddI ze' xs) | isAdd e   = Just (Add (insertList xs (comps e)), ze')
+                            | otherwise = Just (Add (fromList (e : xs)), ze')
           res (NegI ze')    = Just (Negate e, ze')
-          res (MulI ze' xs) | isMul e   = Just (Mul (insertList (comps e) xs), ze')
-                            | otherwise = Just (Mul (insert e xs), ze')
+          res (MulI ze' xs) | isMul e   = Just (Mul (insertList xs (comps e)), ze')
+                            | otherwise = Just (Mul (fromList (e : xs)), ze')
           res (DivI ze')    = Just (Div e, ze')
           res (Top)         = Nothing
           isAdd (Add _)     = True
           isAdd _           = False
           isMul (Mul _)     = True
           isMul _           = False
-          comps (Add xs)    = toList xs
-          comps (Mul xs)    = toList xs
+          comps (Add xs)    = xs
+          comps (Mul xs)    = xs
 
 
 -- Unsafe shorthands for goUp.
 goUpU :: Ctx -> Ctx
 goUpU = fromJust . goUp
-
--- Note: this does not include the ctx itself
-trailUp :: Ctx -> [Ctx]
-trailUp ctx | goUp ctx == Nothing = []
-            | otherwise           = up : trailUp up
-    where up = fromJust $ goUp ctx
 
 getFullExpr :: Ctx -> Expr
 getFullExpr (e, Top) = e
@@ -222,46 +251,25 @@ normaliseAssocRule match construct extract e
           getList = (\ b -> toList (extract b) )
           allOthers = (asList \\ others) ++ (concatMap getList others)
 
--- Short test
-norm_test :: Expr
-norm_test = Add $ fromList [
-                Add $ fromList [
-                    Mul $ fromList [
-                        Mul $ fromList [
-                            Con 1, 
-                            Con 2
-                        ], 
-                        Mul $ fromList [
-                            Con 4, 
-                            Con 5
-                        ], 
-                        Con 6
-                    ], 
-                    Negate $ Negate $ Con 7, 
-                    Add $ fromList [
-                        Mul $ fromList [
-                            Mul $ fromList [
-                                Mul $ fromList [Con 8]
-                            ]
-                        ]
-                    ]
-                ],
-                Con 9,
-                Add $ fromList [Mul $ fromList [Con 10, Con 11], Negate $ Negate $ Con 12]
-            ]
-
 
 ----------------------------------
 --          RULES               --
 ----------------------------------
 type Rule = Expr -> [Expr]
 distR :: Rule
-distR (Mul multies)   = map convert $ concatMap dist_optos addies 
-    where addies           = filter isAdd $ toListU multies
+distR (Mul multies)   = map convert $ concatMap dist_optos (addies ++ negaddies)
+    where addies           = filter isAdd    $ toListU multies
+          negaddies        = filter isNegAdd $ toListU multies  
           othas e          = toList (remove e multies)
           dist_optos e     = map (\opt -> (opt, e)) $ othas e
-          convert (mul, add@(Add xs)) = let distedAdd = Add (fromList $ map (\x -> Mul $ fromList [mul, x]) $ toList xs) -- TODO: Subsequences
+          convert (mul, add@(Add xs)) = 
+                    let distedAdd = Add (fromList $ map (\x -> Mul $ fromList [mul, x]) $ toList xs)
                     in Mul $ fromList (distedAdd : (toList multies \\ [mul, add]))
+          convert (mul, e@(Negate add@(Add xs))) = 
+                    let distedAdd = Add (fromList $ map (\x -> Mul $ fromList [mul, x]) $ toList xs)
+		    in Negate $ Mul $ fromList (distedAdd : (toList multies \\ [mul, e]))
+          isNegAdd (Negate (Add _)) = True
+          isNegAdd _                = False
 distR _         = []
       
 evalR :: Rule
@@ -282,25 +290,39 @@ depends x = if integral then Con (round x) else Double x
 
 neg2subR :: Rule
 neg2subR (Add xs)          = if negatives then [Negate (Add flipped)] else []
-    where negatives        = any (\x -> (isConst x && eval x < 0) || isNeg x) $ toList xs
+    where negatives        = any (\x -> isNeg x) $ toList xs
           flipped          = fromList $ map flipE $ toList xs
-          flipE (Con x)    = (Con (0 - x))
-          flipE (Double x) = (Double (0.0 - x))
           flipE (Negate x) = x
           flipE x          = Negate x
-neg2subR (Mul xs)          = if length negatives == 0 then [] else map convert negatives
-    where negatives        = filter (\x -> (isConst x && eval x < 0) || isNeg x) $ toList xs
+neg2subR (Mul xs)          = if null negatives then [] else map convert negatives
+    where negatives        = filter (\x -> isNeg x) $ toList xs
           flipped          = fromList $ map flipE $ toList xs
           flipE (Con x)    = (Con (0 - x))
           flipE (Double x) = (Double (0.0 - x))          
           flipE (Negate x) = x
           convert e        = Negate $ Mul $ fromList $ (flipE e) : (toList xs \\ [e])
+neg2subR (Negate (Add xs)) = [Add flipped]
+    where flipped          = fromList $ map flipE $ toList xs
+          flipE (Negate x) = x
+          flipE x          = Negate x
+neg2subR (Negate (Mul xs)) = map convert $ toList xs
+    where flipped          = fromList $ map flipE $ toList xs
+          flipE (Negate x) = x
+          flipE x          = Negate x
+          convert e        = Mul $ fromList $ (flipE e) : (toList xs \\ [e])
 neg2subR _              = []
 
 
 fracR :: Rule
 fracR (Double x)        
-            | nice && abs (n `div` diver) /= 1 = [Mul $ fromList [Con (n `div` diver), Div (Con (10000 `div` diver))]]
+            | nice && abs (n `div` diver) /= 1 = [Mul $ fromList [Con (n `div` diver), Double (fromIntegral diver / 10000)]]
+            | otherwise                    = []
+    where n       = round (x * 10000)
+          nice    = fromIntegral n / 10000 == x
+          diver   = gcd 10000 (abs n)
+          flipped = x < 0
+fracR (Negate (Double x))
+            | nice && abs (n `div` diver) /= 1 = [Mul $ fromList [Negate $ Con (abs n `div` diver), Double (fromIntegral diver / 10000)]]
             | otherwise                    = []
     where n       = round (x * 10000)
           nice    = fromIntegral n / 10000 == x
@@ -316,7 +338,7 @@ rules = [distR, evalR, neg2subR, fracR]
 --          SUB-EXPR            --
 ----------------------------------
 subExpr :: Ctx -> [Ctx]
-subExpr ctx = downs ++ concatMap goDown downs
+subExpr ctx = downs ++ concatMap subExpr downs
    where downs     = goDown ctx
          
 
@@ -348,14 +370,19 @@ step (e, ze) e' = (e', ze)
 
 -- Finds a context that matches the lhs of an equal
 findCtx :: Expr -> Expr -> [Ctx]
-findCtx expr lhs | null candidates  = []
-                 | otherwise        = candidates
-   where tops       = map toCtx $ concat $ take 8 $ subExprS [distR, evalR, neg2subR, fracR] Set.empty [expr]
+findCtx expr lhs = sortBy (\a b -> compare (nicenessCtx b expr) (nicenessCtx a expr)) $ candidates
+   where 
+         tops       = map toCtx $ concat $ take 6 $ subExprS [distR, evalR, neg2subR, fracR] Set.empty [expr]
          subs       = tops ++ concatMap subExpr tops
          candidates = filter (\(e,ze) -> e == lhs) subs
 
-rawTerms :: Expr -> [Ctx]
-rawTerms expr = filter (\(e,ze) -> isConst e) $ subExpr (toCtx expr)
+nicenessCtx :: Ctx -> Expr -> Int
+nicenessCtx expr org = length $ rawTermsExpr \\ rawTermsOrg
+	where rawTermsOrg  = rawTerms org
+	      rawTermsExpr = rawTerms $ getFullExpr expr
+         
+rawTerms :: Expr -> [Expr]
+rawTerms expr = map fst $ filter (\(e,ze) -> isConst e && not (isNeg e)) $ subExpr (toCtx expr)
          
 type Equal = (Expr, Expr)
 performStep :: Expr -> Equal -> Maybe Expr
@@ -403,7 +430,7 @@ n_t' = [Lhs  (Mul (Double 0.75) (Double 0.75)),
 -}   
         --Matroesjka exercise
 opdr1 = Mul $ fromList [(Con 32) , sub, sub]
-    where sub = Add $ fromList [(Con 1), (Double (-0.25))]      
+	where sub = Add $ fromList [(Con 1), (Negate $ Double (0.25))]      
 
 ex1cor = (opdr1, [uitw1_1, uitw1_2, uitw1_3, uitw1_4, uitw1_5])
     
@@ -432,7 +459,10 @@ uitw1_5 :: Program
 uitw1_5 = [Both (Mul $ fromList [(Con 32), (Double 0.75), (Double 0.75)]) (Mul $ fromList [(Con 24), (Double 0.75)]),
          Both (Mul $ fromList [(Con 24), (Double 0.75)]) (Con 18)]
          
-
+uitw1_6 :: Program
+uitw1_6 = [Both (Mul $ fromList [Con 32, Con 3]) (Con 96),
+          Both (Mul $ fromList [Con 96, Div (Con 4)]) (Con 24),
+          Both (Add $ fromList [Con 24, Negate (Con 6)]) (Con 18)]
 
          --Chocolate exercise
 opdr2 = Mul $ fromList [Add $ fromList [Add $ fromList [(Con 11), (Con (-2))], Add $ fromList [(Con 7), (Con (-4))]], Div (Add $ fromList [(Con 18), (Con 12)]), (Con 100)]    
@@ -544,14 +574,18 @@ process :: Expr -> Program -> IO ()
 process e []             = putStrLn ("Done: " ++ show e)
 process e ((Lhs lhs):xs) = 
              do putStrLn ("Step: " ++ show lhs)
-                let e' = performHalfStep e lhs
+                let lhs' = normalise lhs
+                putStrLn ("Normalised: " ++ show lhs')
+                let e' = performHalfStep e lhs'
                 case e' of
                      Nothing -> putStrLn ("\tFail")
                      _       -> do putStrLn ("\t" ++ show e')
-                                   process (fromJust e') xs
+                                   process (normalise $ fromJust e') xs
 process e ((Both lhs rhs):xs)  =
              do putStrLn ("Step: " ++ show lhs ++ " = " ++ show rhs)
-                let e' = performStep e (lhs, rhs)
+                let lhs' = normalise lhs
+                putStrLn ("Normalised: " ++ show lhs')
+                let e' = performStep e (lhs', rhs)
                 case e' of
                      Nothing -> putStrLn ("\tFail")
                      _       -> if (fromJust e') == e then
@@ -559,7 +593,7 @@ process e ((Both lhs rhs):xs)  =
                                       process e xs
                                 else
                                    do putStrLn ("\t" ++ show e')
-                                      process (fromJust $ e') xs
+                                      process (normalise $ fromJust $ e') xs
 
 process' opdr uitws = do putStrLn (show opdr)
                          putStrLn (replicate 80 '-')
