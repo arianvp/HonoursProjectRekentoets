@@ -5,12 +5,13 @@ import Data.Maybe
 import Data.List (subsequences, nub, (\\), partition, intersperse, sortBy)
 
 -- Expression data type
-data Expr = Con Int
-      | Add (Bag Expr)
-      | Negate Expr
-      | Mul (Bag Expr)
-      | Div Expr
-      | Double Double
+data Expr = 
+        Con    Int         -- Positive only
+      | Add    (Bag Expr)  -- Addition of the elements
+      | Negate Expr        -- Unary negation
+      | Mul    (Bag Expr)  -- Multiplication of the elements
+      | Div    Expr        -- Unary division
+      | Double Double      -- Positive only
      deriving (Eq, Read, Ord)
 -- Zipper data type
 data ZExpr = 
@@ -75,6 +76,7 @@ goDown (e, ze) = res e
                                  single' = map (\([e], es) -> (e,                AddI ze es)) single
                                  comb'   = map (\(e,   es) -> (Add $ fromList e, AddI ze es)) combinations
                              in comb' ++ single'
+            res (Negate (Mul xs)) = (map (\(e,ze) -> (Negate e,ze)) $ res (Mul xs)) ++ [((Mul xs), NegI ze)]
             res (Negate x) = [(x, NegI ze)]
             res (Mul xs)   | isMulI ze = []
                            | otherwise =
@@ -146,14 +148,24 @@ normalise1 (Double x) | x < 0     = Negate (Double (negate x))
 normalise1 (Negate e) = (Negate $ normalise1 e)
 normalise1 (Div e)    = (Div $ normalise1 e)
 --normalise1 e = e
-normalise2 e@(Add xs) = Add $ fromList $ filter (filterExpr 0) $ map normalise2 (toList xs)
-normalise2 e@(Mul xs) = Mul $ fromList $ filter (filterExpr 1) $ map normalise2 (toList xs)
+normalise2 (Add xs) = Add $ fromList $ filter (filterExpr 0) $ map normalise2 (toList xs)
+normalise2 (Mul xs) =      normalMul $ filter (filterExpr 1) $ map normalise2 (toList xs)
 normalise2 (Negate (Negate e)) = normalise2 e
+normalise2 (Negate (Mul xs))   = let mul' = normalise2 (Mul xs)
+				 in if isNeg mul' then (\(Negate mul) -> mul) mul' else Negate mul'
 normalise2 (Negate e)          = (Negate $ normalise2 e)
 normalise2 (Div (Con x))       = Double (1.0 / fromIntegral x)
 normalise2 (Div (Double x))    = depends $ 1.0 / x
 normalise2 (Div e)             = (Div $ normalise2 e)
 normalise2 e = e
+
+-- Put the multiplication into normal form
+normalMul :: [Expr] -> Expr
+normalMul xs     = f xs [] False
+	where f [] res c | c == True  = Negate (Mul $ fromList res)
+	                 | otherwise  =         Mul $ fromList res
+	      f ((Negate x):xs) res c = f xs (x:res) (not c)
+	      f (x:xs)          res c = f xs (x:res) c
 
 filterExpr :: Integer -> Expr -> Bool
 filterExpr ido expr = not (isConst expr) || check expr

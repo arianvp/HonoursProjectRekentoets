@@ -40,14 +40,14 @@ step (e, ze) e' = (e', ze)
 
 -- Finds a context that matches the lhs of an equal
 findCtx :: Expr -> Expr -> [Ctx]
-findCtx expr lhs = sortBy (\a b -> compare (nicenessCtx b expr) (nicenessCtx a expr)) $ candidates
+findCtx expr lhs = sortBy (\a b -> compare (nicenessCtx a expr) (nicenessCtx b expr)) $ candidates
    where 
          tops       = map toCtx $ concat $ take 6 $ subExprS [distR, evalR, neg2subR, fracR] Set.empty [expr]
          subs       = tops ++ concatMap subExpr tops
          candidates = filter (\(e,ze) -> e == lhs) subs
 
 nicenessCtx :: Ctx -> Expr -> Int
-nicenessCtx expr org = length $ rawTermsExpr \\ rawTermsOrg
+nicenessCtx expr org = length $ rawTermsOrg \\ rawTermsExpr
 	where rawTermsOrg  = rawTerms org
 	      rawTermsExpr = rawTerms $ getFullExpr expr
          

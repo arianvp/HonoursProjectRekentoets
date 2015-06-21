@@ -14,7 +14,13 @@ import qualified Ideas.Common.Library as I
 import qualified Ideas.Main.Default as I
 
 small :: Expr
-small = Mul $ fromList [Con 2, Con 3, Con 4, Con 5, Add $ fromList [Con 4, Con 9]]
+small = Mul $ fromList [Con 2, Negate $ Con 3, Con 4, Add $ fromList [Con 5, Con 9]]
+
+small_uit :: Program
+small_uit = [Both (Mul $ fromList [Con 2, Negate $ Con 3, Con 4]) (Negate $ Con 24),
+	     Both (Mul $ fromList [Con 5, Negate $ Con 24]) (Negate $ Con 120),
+	     Both (Mul $ fromList [Con 9, Negate $ Con 24]) (Negate $ Con 216),
+	     Both (Add $ fromList [Negate $ Con 120, Negate $ Con 216]) (Negate $ Con 336)]
 
 -- Process function
 process :: Expr -> Program -> IO ()
@@ -39,7 +45,7 @@ process e ((Both lhs rhs):xs)  =
                                    do putStrLn ("\tIgnored:" ++ show e)
                                       process e xs
                                 else
-                                   do putStrLn ("\t" ++ show e')
+                                   do putStrLn ("\t" ++ show e' ++ "   \t\t" ++ (show $ eval $ fromJust e'))
                                       process (normalise $ fromJust $ e') xs
 
 process' opdr uitws = do putStrLn (show opdr)

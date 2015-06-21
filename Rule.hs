@@ -39,22 +39,24 @@ neg2subR (Add xs)          = if negatives then [Negate (Add flipped)] else []
           flipped          = fromList $ map flipE $ toList xs
           flipE (Negate x) = x
           flipE x          = Negate x
+{-
 neg2subR (Mul xs)          = if null negatives then [] else map convert negatives
     where negatives        = filter (\x -> isNeg x) $ toList xs
           flipped          = fromList $ map flipE $ toList xs
           flipE (Con x)    = (Con (0 - x))
           flipE (Double x) = (Double (0.0 - x))          
           flipE (Negate x) = x
-          convert e        = Negate $ Mul $ fromList $ (flipE e) : (toList xs \\ [e])
+          convert e        = Negate $ Mul $ fromList $ (flipE e) : (toList xs \\ [e]) -}
 neg2subR (Negate (Add xs)) = [Add flipped]
     where flipped          = fromList $ map flipE $ toList xs
           flipE (Negate x) = x
           flipE x          = Negate x
+{-
 neg2subR (Negate (Mul xs)) = map convert $ toList xs
     where flipped          = fromList $ map flipE $ toList xs
           flipE (Negate x) = x
           flipE x          = Negate x
-          convert e        = Mul $ fromList $ (flipE e) : (toList xs \\ [e])
+          convert e        = Mul $ fromList $ (flipE e) : (toList xs \\ [e]) -}
 neg2subR _              = []
 
 
