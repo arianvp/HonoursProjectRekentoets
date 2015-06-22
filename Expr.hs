@@ -136,7 +136,7 @@ getFullExpr ctx      = getFullExpr $ goUpU ctx -- Unsafely go up, should work si
         - Singleton multiplications/additions should be flattened
  -}
 normalise :: Expr -> Expr
-normalise = normalise2 . normalise1
+normalise = fixPointNormalise
 
 -- normalization pass flattening nested adds and muls
 normalise1 e@(Add _) = normaliseAssocRule isAdd Add (\ (Add b) -> b) e
@@ -164,17 +164,18 @@ normalise2 (Div (Double x))    = depends $ 1.0 / x
 normalise2 (Div e)             = (Div $ normalise2 e)
 normalise2 e = e
 
+ntest = Add $ fromList [Con 0, Mul $ fromList [Con (-1), Con 6]]
 
 fixPointNormalise :: Expr -> Expr
 fixPointNormalise = flip fixPointNormalise' Nothing
 
 fixPointNormalise' :: Expr -> Maybe Expr -> Expr
 fixPointNormalise' e Nothing = let k = normalise2 . normalise1 $ e
-                              in fixPointNormalise k e
+                              in fixPointNormalise' k (Just e)
 fixPointNormalise' e (Just e')
   | e == e'   = e
-  | otherwise = let k = normalise 2 . normalise 1 $ e
-                in fixPointNormalise k e
+  | otherwise = let k = normalise2 . normalise1 $ e
+                in fixPointNormalise' k (Just e)
 
 -- Put the multiplication into normal form
 normalMul :: [Expr] -> Expr
