@@ -42,14 +42,14 @@ step (e, ze) e' = (e', ze)
 findCtx :: Expr -> Expr -> [Ctx]
 findCtx expr lhs = sortBy (\a b -> compare (nicenessCtx a expr) (nicenessCtx b expr)) $ candidates
    where 
-         tops       = map toCtx $ concat $ take 6 $ subExprS [distR, evalR, neg2subR, fracR] Set.empty [expr]
+         tops       = map toCtx $ concat $ take 8 $ subExprS [distR, evalR, neg2subR, fracR] Set.empty [expr]
          subs       = tops ++ concatMap subExpr tops
          candidates = filter (\(e,ze) -> e == lhs) subs
 
 nicenessCtx :: Ctx -> Expr -> Int
 nicenessCtx expr org = length $ rawTermsOrg \\ rawTermsExpr
-	where rawTermsOrg  = rawTerms org
-	      rawTermsExpr = rawTerms $ getFullExpr expr
+	where rawTermsOrg  = filter (\e -> not (isConst e && eval e == 1)) $ rawTerms org
+	      rawTermsExpr = filter (\e -> not (isConst e && eval e == 1)) $ rawTerms $ getFullExpr expr
          
 rawTerms :: Expr -> [Expr]
 rawTerms expr = map fst $ filter (\(e,ze) -> isConst e && not (isNeg e)) $ subExpr (toCtx expr)
