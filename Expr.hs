@@ -159,8 +159,8 @@ normalise2 (Negate (Mul xs))   = let mul' = normalise2 (Mul xs)
                                       then (\(Negate mul) -> mul) mul'
                                       else Negate mul'
 normalise2 (Negate e)          = (Negate $ normalise2 e)
-normalise2 (Div (Con x))       = Double (1.0 / fromIntegral x)
-normalise2 (Div (Double x))    = depends $ 1.0 / x
+--normalise2 (Div (Con x))       = Double (1.0 / fromIntegral x)
+--normalise2 (Div (Double x))    = depends $ 1.0 / x
 normalise2 (Div e)             = (Div $ normalise2 e)
 normalise2 e = e
 
@@ -186,11 +186,14 @@ normalMul xs     = f xs [] False
 	      f (x:xs)          res c = f xs (x:res) c
 
 filterExpr :: Integer -> Expr -> Bool
-filterExpr ido expr = not (isConst expr) || check expr
+filterExpr ido expr = not (((isMul expr || isAdd expr) && isEmpty expr) || (isConst expr && not (check expr)))
     where check (Con x)    = (toInteger x) /= ido
           check (Double x) = x /= fromInteger ido
           check (Negate e) | ido == 0  = check e
                            | otherwise = True
+          isEmpty (Add xs) = null $ toList xs
+          isEmpty (Mul xs) = null $ toList xs
+          isEmpty _        = False
 
 -- Given an associative rule (determined by a rule matcher, a constructor
 -- and an extractor (for the contained bag)) and an expression, normalises  
