@@ -21,6 +21,31 @@ distR (Mul multies)   = map convert $ concatMap dist_optos (addies ++ negaddies)
           isNegAdd (Negate (Add _)) = True
           isNegAdd _                = False
 distR _         = []
+
+
+
+iDistR :: Rule
+
+-- vind alle willekeurige paren. 
+iDistR (Add addies) = do
+  as <- listAddies
+  bs <- listAddies
+  map (\x ->
+          case get x bs of
+            Just x -> _ -- Ja we hebben een common element! EXTRAPOLEREN
+            Nothing -> _ -- nee we hebben geen common element, niks doen
+      ) as
+
+  -- als a en b eeen common subsequence hebben.
+  -- voeg a en b toe aan de resultaten
+  -- we kijken alleen naar common subsequences van lengte
+  -- kijk in elk element in a
+  -- als het element ook in b voorkomt. Ga verder met inverse distributie
+  -- voeg toe. Flatten
+  -- return alles
+  -- ???
+  -- profit!
+  where listAddies = toList addies
       
 combinations :: Int -> [a] -> [[a]]
 combinations k xs = combinations' (length xs) k xs
@@ -34,9 +59,12 @@ combinations k xs = combinations' (length xs) k xs
 evalR :: Rule
 evalR x       = f x
     where f (Add xs)   | length (toList xs) == 2 = compute sum     $ candids xs
-                       | otherwise               = map (\x -> Add  $ fromList ((depends $ sum     $ map eval x) : (toList xs \\ x))) $ candids xs
-          f (Mul xs)   | length (toList xs) == 2 = compute product $ candids xs
-                       | otherwise               = map (\x -> Mul  $ fromList ((depends $ product $ map eval x) : (toList xs \\ x))) $ candids xs
+                       | otherwise               =
+                          map (\x -> Add  $ fromList ((depends $ sum     $ map eval x) : (toList xs \\ x))) $ candids xs
+          f (Mul xs)   | length (toList xs) == 2 =
+                          compute product $ candids xs
+                       | otherwise               =
+                          map (\x -> Mul  $ fromList ((depends $ product $ map eval x) : (toList xs \\ x))) $ candids xs
           f _          = []
           compute :: ([Double] -> Double) -> [[Expr]] -> [Expr]
           compute f xs = map (depends . f) $ map (map eval) xs

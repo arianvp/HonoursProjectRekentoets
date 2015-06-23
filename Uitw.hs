@@ -11,7 +11,7 @@ type Program = [Line]
 opdr1 = Mul $ fromList [(Con 32) , sub, sub]
 	where sub = Add $ fromList [(Con 1), (Negate $ Double (0.25))]      
 
-ex1cor = (opdr1, [uitw1_1, uitw1_2, uitw1_3, uitw1_4, uitw1_5, uitw1_6, uitw1_7, uitw1_8, uitw1_9])
+ex1cor = (opdr1, [uitw1_1, uitw1_2, uitw1_3, uitw1_4, uitw1_5, uitw1_6, uitw1_7, uitw1_8, uitw1_9, uitw1_10])
 ex1cor' = (opdr1, [uitw1_6, uitw1_7, uitw1_8, uitw1_9])
     
 uitw1_1 :: Program
@@ -58,6 +58,15 @@ uitw1_9 = [Lhs  (Mul $ fromList [Double 0.75, Double 0.75]),
        Both (Mul $ fromList [part, part]) (Mul $ fromList [Con 9, Div $ Con 16]),
        Both (Mul $ fromList [Mul $ fromList [Con 9, Div $ Con 16], Con 32]) (Con 18)]
 	where part = Mul $ fromList [Con 3, Div (Con 4)]
+
+
+uitw1_10 :: Program
+uitw1_10 = [Both (Mul $ fromList [Mul $ fromList [Con 3, Div (Con 4)], Mul $ fromList [Con 32, Div (Con 1)]]) (Mul $ fromList [Con 96, Div (Con 4)])
+           ,Both (Mul $ fromList [Con 96, Div (Con 4)]) (Con 24)
+           ,Both (Mul $ fromList [Mul $ fromList [Con 3, Div (Con 4)]
+                                 ,Mul $ fromList [Con 24, Div (Con 1)]]) (Mul $ fromList [Con 72, Div (Con 4)])
+           ,Both (Mul $ fromList [Con 72, Div (Con 4)]) ( Con 18)
+           ]
 
 uitw1_incorrect :: Program
 uitw1_incorrect = [Both (Mul $ fromList [Con 32, Div (Con 100), Con 25]) (Con 8),
