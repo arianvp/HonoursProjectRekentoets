@@ -7,9 +7,6 @@ data Line = Lhs Expr
       | Both Expr Expr
 type Program = [Line]
 
-{-
-
--}   
         --Matroesjka exercise
 opdr1 = Mul $ fromList [(Con 32) , sub, sub]
 	where sub = Add $ fromList [(Con 1), (Negate $ Double (0.25))]      
@@ -62,6 +59,10 @@ uitw1_9 = [Lhs  (Mul $ fromList [Double 0.75, Double 0.75]),
        Both (Mul $ fromList [Mul $ fromList [Con 9, Div $ Con 16], Con 32]) (Con 18)]
 	where part = Mul $ fromList [Con 3, Div (Con 4)]
 
+uitw1_incorrect :: Program
+uitw1_incorrect = [Both (Mul $ fromList [Con 32, Div (Con 100), Con 25]) (Con 8),
+                   Both (Mul $ fromList [Con 32, Negate (Con 8)]) (Con 26)]
+          
          --Chocolate exercise
 opdr2 = Mul $ fromList [Add $ fromList [Add $ fromList [(Con 11), (Con (-2))], Add $ fromList [(Con 7), (Con (-4))]], Div (Add $ fromList [(Con 18), (Con 12)]), (Con 100)]    
 
@@ -179,11 +180,20 @@ uitw5_3 = [Lhs (Double 8.5),
            Both (Add $ fromList [(Double 38.0), (Double (-0.5))]) (Double 37.5),
            Both (Add $ fromList [(Double 32.0), (Con 2)]) (Double 34.0),
            Both (Mul $ fromList [(Double 37.5), (Double 4.80)]) (Double 180.0)]   
-        
+
+uitw5_4 :: Program 
+uitw5_4 = [Both (Add $ fromList [Double 8.5, Double 0.75]) (Double 7.75),
+           Both (Mul $ fromList [Con 7, Con 4]) (Con 28),
+           Both (Mul $ fromList [Double 0.75, Con 4]) (Con 3),
+           Lhs  (Con 31),
+           Both (Add $ fromList [Con 7, (Double 0.5)]) (Double 6.5),
+           Both (Mul $ fromList [Con 37, (Double 4.80)]) (Double 177.60),
+           Both (Mul $ fromList [(Double 177.60), (Double 2.80)]) (Double 180.0)] 
+           
         --Recipe exercise        
 --opdr6 = Mul (Div (Con 600) (Con 800)) (Con 300)   
 opdr6 =  Mul $ fromList [ Div (Con 800), Con 600, Con 300]
-ex6cor = (opdr6, [uitw6_1])
+ex6cor = (opdr6, [uitw6_1, uitw6_2])
 
 
 uitw6_1 :: Program
@@ -194,3 +204,8 @@ uitw6_1 = [ Both
               (Mul $ fromList [Con 300, Div (Mul $ fromList [Con 4, Div (Con 3)])])
               (Con 225)
           ]
+
+uitw6_2 :: Program
+uitw6_2 = [Both (Mul $ fromList [Con 600, Div (Con 800), Con 100]) (Con 75),
+           Both (Mul $ fromList [Con 300, Div (Con 100), Con 75]) (Con 225)]
+           

@@ -136,7 +136,7 @@ getFullExpr ctx      = getFullExpr $ goUpU ctx -- Unsafely go up, should work si
         - Singleton multiplications/additions should be flattened
  -}
 normalise :: Expr -> Expr
-normalise = normalise2 . normalise1
+normalise = fixPointNormalise
 
 -- normalization pass flattening nested adds and muls
 normalise1 e@(Add _) = normaliseAssocRule isAdd Add (\ (Add b) -> b) e
@@ -148,16 +148,34 @@ normalise1 (Double x) | x < 0     = Negate (Double (negate x))
 normalise1 (Negate e) = (Negate $ normalise1 e)
 normalise1 (Div e)    = (Div $ normalise1 e)
 --normalise1 e = e
+--
 normalise2 (Add xs) = Add $ fromList $ filter (filterExpr 0) $ map normalise2 (toList xs)
 normalise2 (Mul xs) =      normalMul $ filter (filterExpr 1) $ map normalise2 (toList xs)
+
+
 normalise2 (Negate (Negate e)) = normalise2 e
 normalise2 (Negate (Mul xs))   = let mul' = normalise2 (Mul xs)
-				 in if isNeg mul' then (\(Negate mul) -> mul) mul' else Negate mul'
+				 in if isNeg mul'
+                                      then (\(Negate mul) -> mul) mul'
+                                      else Negate mul'
 normalise2 (Negate e)          = (Negate $ normalise2 e)
 --normalise2 (Div (Con x))       = Double (1.0 / fromIntegral x)
 --normalise2 (Div (Double x))    = depends $ 1.0 / x
 normalise2 (Div e)             = (Div $ normalise2 e)
 normalise2 e = e
+
+ntest = Add $ fromList [Con 0, Mul $ fromList [Con (-1), Con 6]]
+
+fixPointNormalise :: Expr -> Expr
+fixPointNormalise = flip fixPointNormalise' Nothing
+
+fixPointNormalise' :: Expr -> Maybe Expr -> Expr
+fixPointNormalise' e Nothing = let k = normalise2 . normalise1 $ e
+                              in fixPointNormalise' k (Just e)
+fixPointNormalise' e (Just e')
+  | e == e'   = e
+  | otherwise = let k = normalise2 . normalise1 $ e
+                in fixPointNormalise' k (Just e)
 
 -- Put the multiplication into normal form
 normalMul :: [Expr] -> Expr

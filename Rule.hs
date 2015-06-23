@@ -75,6 +75,14 @@ fracR (Negate (Double x))
           flipped = x < 0
 fracR _                  = []
 
+--Inverse of the fracR rule, Div -> Double
+ifracR :: Rule
+ifracR (Div (Double x))         = [Double (1/x)]
+ifracR (Div (Negate(Double x))) = [Double (1/x)]
+ifracR (Div (Con x))            = [Double (1/(fromIntegral x))]
+ifracR (Div (Negate(Con x)))    = [Double (1/(fromIntegral x))]
+ifracR _                        = []
+
 apply :: Rule -> Ctx -> [Ctx]
 apply r (e, ze) = map (\x -> (x, ze)) $ r e
 
