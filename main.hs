@@ -10,8 +10,9 @@ import Data.Maybe
 import Data.List (subsequences, nub, (\\), partition, intersperse, sortBy)
 import qualified Data.Set as Set
 import qualified Data.Map as M
-import qualified Ideas.Common.Library as I
-import qualified Ideas.Main.Default as I
+
+--import qualified Ideas.Common.Library as I
+--import qualified Ideas.Main.Default as I
 
 small :: Expr
 small = Mul $ fromList [Con 2, Negate $ Con 3, Con 4, Add $ fromList [Con 5, Con 9]]
