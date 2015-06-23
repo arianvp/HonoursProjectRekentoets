@@ -182,7 +182,7 @@ uitw5_3 = [Lhs (Double 8.5),
            Both (Mul $ fromList [(Double 37.5), (Double 4.80)]) (Double 180.0)]   
 
 uitw5_4 :: Program 
-uitw5_4 = [Both (Add $ fromList [Double 8.5, Double 0.75]) (Double 7.75),
+uitw5_4 = [Both (Add $ fromList [Double 8.5, Negate $ Double 0.75]) (Double 7.75),
            Both (Mul $ fromList [Con 7, Con 4]) (Con 28),
            Both (Mul $ fromList [Double 0.75, Con 4]) (Con 3),
            Lhs  (Con 31),
