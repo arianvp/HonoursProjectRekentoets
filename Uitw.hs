@@ -61,6 +61,10 @@ uitw1_6 = [Both (Mul $ fromList [Con 32, Con 3]) (Con 96),
           Both (Mul $ fromList [Con 96, Div (Con 4)]) (Con 24),
           Both (Add $ fromList [Con 24, Negate (Con 6)]) (Con 18)]
 
+uitw1_incorrect :: Program
+uitw1_incorrect = [Both (Mul $ fromList [Con 32, Div (Con 100), Con 25]) (Con 8),
+                   Both (Mul $ fromList [Con 32, Negate (Con 8)) (Con 26)]
+          
          --Chocolate exercise
 opdr2 = Mul $ fromList [Add $ fromList [Add $ fromList [(Con 11), (Con (-2))], Add $ fromList [(Con 7), (Con (-4))]], Div (Add $ fromList [(Con 18), (Con 12)]), (Con 100)]    
 
@@ -102,7 +106,7 @@ uitw4_2 :: Program
 uitw4_2 = [Both (Mul $ fromList [(Double 0.25), (Con 6)]) (Double 1.50),
            Both (Add $ fromList [(Double 4.74), (Double (-1.50))]) (Double 3.24),
            Both (Mul $ fromList [(Double 3.24), Div (Con 6)]) (Double 0.54)]       
-        
+
         --Work pay exercise
 opdr5 = Mul $ fromList [Add $ fromList [mado, vr], Double 4.80]
   where mado = Mul $ fromList [Add $ fromList [(Add $ fromList [Double 16.5, Con (-8)]), Negate (Add $ fromList [Double 12.75, Con (-12)])], Con 4]
@@ -150,7 +154,16 @@ uitw5_3 = [Lhs (Double 8.5),
            Both (Add $ fromList [(Double 38.0), (Double (-0.5))]) (Double 37.5),
            Both (Add $ fromList [(Double 32.0), (Con 2)]) (Double 34.0),
            Both (Mul $ fromList [(Double 37.5), (Double 4.80)]) (Double 180.0)]   
-        
+
+uitw5_4 :: Program 
+uitw5_4 = [Both (Add $ fromList [Double 8.5, Double 0.75]) (Double 7.75),
+           Both (Mul $ fromList [Con 7, Con 4]) (Con 28),
+           Both (Mul $ fromList [Con 0.75, Con 4]) (Con 3),
+           Lhs  (Con 31),
+           Both (Add $ fromList [Con 7, (Double 0.5)]) (Double 6.5),
+           Both (Mul $ fromList [Con 37, (Double 4.80)]) (Double 177.60),
+           Both (Mul $ fromList [(Double 177.60), (Double 2.80)]) (Double 180.0)] 
+           
         --Recipe exercise        
 --opdr6 = Mul (Div (Con 600) (Con 800)) (Con 300)   
 opdr6 =  Mul $ fromList [ Div (Con 800), Con 600, Con 300]
@@ -165,3 +178,8 @@ uitw6_1 = [ Both
               (Mul $ fromList [Con 300, Con 4, Div (Con 3)])
               (Con 225)
           ]
+
+uitw6_2 :: Program
+uitw6_2 = [Both (Mul $ fromList [Con 600, Div (Con 800), Con 100]) (Con 75),
+           Both (Mul $ fromList [Con 300, Div (Con 100), Con 75]) (Con 225)]
+           
