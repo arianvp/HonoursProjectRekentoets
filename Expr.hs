@@ -1,7 +1,10 @@
+{-# LANGUAGE DeriveDataTypeable #-}
+
 module Expr where
 
 import Bag
 import Data.Maybe
+import Data.Typeable
 import Data.List (subsequences, nub, (\\), partition, intersperse, sortBy)
 
 -- Expression data type
@@ -12,7 +15,7 @@ data Expr =
       | Mul    (Bag Expr)  -- Multiplication of the elements
       | Div    Expr        -- Unary division
       | Double Double      -- Positive only
-     deriving (Eq, Read, Ord)
+     deriving (Eq, Read, Ord, Typeable)
 -- Zipper data type
 data ZExpr = 
         AddI   ZExpr [Expr]
@@ -151,8 +154,6 @@ normalise1 (Div e)    = (Div $ normalise1 e)
 --
 normalise2 (Add xs) = Add $ fromList $ filter (filterExpr 0) $ map normalise2 (toList xs)
 normalise2 (Mul xs) =      normalMul $ filter (filterExpr 1) $ map normalise2 (toList xs)
-
-
 normalise2 (Negate (Negate e)) = normalise2 e
 normalise2 (Negate (Mul xs))   = let mul' = normalise2 (Mul xs)
 				 in if isNeg mul'
@@ -185,15 +186,18 @@ normalMul xs     = f xs [] False
 	      f ((Negate x):xs) res c = f xs (x:res) (not c)
 	      f (x:xs)          res c = f xs (x:res) c
 
+-- Filter the epxressions from a 
 filterExpr :: Integer -> Expr -> Bool
-filterExpr ido expr = not (((isMul expr || isAdd expr) && isEmpty expr) || (isConst expr && not (check expr)))
+filterExpr ido expr = not (((isMul expr || isAdd expr) && isEmpty expr) || (isConst expr && not (check expr)) || (ido == 1 && useless expr))
     where check (Con x)    = (toInteger x) /= ido
           check (Double x) = x /= fromInteger ido
-          check (Negate e) | ido == 0  = check e
-                           | otherwise = True
+          check (Negate e)    | ido == 0  = check e -- Addition
+                              | otherwise = True    -- Multiplication
           isEmpty (Add xs) = null $ toList xs
           isEmpty (Mul xs) = null $ toList xs
           isEmpty _        = False
+          useless (Div (Con 1)) = True
+          useless _        = False
 
 -- Given an associative rule (determined by a rule matcher, a constructor
 -- and an extractor (for the contained bag)) and an expression, normalises  
