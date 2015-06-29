@@ -33,64 +33,66 @@ small_uit2 = [Both (Mul $ fromList [Con 2, Con 3, Con 4]) (Con 24),
 -- Process function
 process :: Expr -> Program -> IO ()
 process e []             = putStrLn ("Done: " ++ show e)
-process e ((Lhs lhs):xs) = 
+process e (Lhs lhs:xs) = 
              do putStrLn ("Step: " ++ show lhs)
                 let lhs' = normalise lhs
                 putStrLn ("Normalised: " ++ show lhs')
                 let e' = performHalfStep e lhs'
                 case e' of
-                     Nothing -> putStrLn ("\tFail")
-                     _       -> do putStrLn ("\t" ++ show (normalise $ fromJust $ e') ++ "   \t\t" ++ (show $ eval $ fromJust e'))
+                     Nothing -> putStrLn "\tFail"
+                     _       -> do putStrLn ("\t" ++ show (normalise $ fromJust e') ++ "   \t\t" ++ show (eval $ fromJust e'))
                                    process (normalise $ fromJust e') xs
-process e ((Both lhs rhs):xs)  =
+                                   
+process e (Both lhs rhs:xs)  =
              do putStrLn ("Step: " ++ show lhs ++ " = " ++ show rhs)
                 let lhs' = normalise $ normalise lhs
                 putStrLn ("Normalised: " ++ show lhs')
                 let e' = performStep e (lhs', rhs)
                 case e' of
-                     Nothing -> putStrLn ("\tFail")
-                     _       -> if (fromJust e') == e then
+                     Nothing -> putStrLn "\tFail"
+                     _       -> if fromJust e' == e then
                                    do putStrLn ("\tIgnored:" ++ show e)
                                       process e xs
                                 else
-                                   do putStrLn ("\t" ++ show (normalise $ fromJust $ e') ++ "   \t\t" ++ (show $ eval $ fromJust e'))
-                                      process (normalise $ fromJust $ e') xs
+                                   do putStrLn ("\t" ++ show (normalise $ fromJust e') ++ "   \t\t" ++ show (eval $ fromJust e'))
+                                      process (normalise $ fromJust e') xs
 
-process' opdr uitws = do putStrLn (show opdr)
+process' opdr uitws = do print opdr
                          putStrLn (replicate 80 '-')
                          mapM_ douitw uitws
     where douitw e = do process opdr e
-                        putStrLn ("\n - \n")
+                        putStrLn "\n - \n"
                     
 processmany :: [(Expr, [Program])] -> IO()
-processmany exs = mapM_ doex exs
+processmany = mapM_ doex 
     where doex (opdr, uitw) = do putStrLn (replicate 80 '-')
                                  process' opdr uitw
-                                 putStrLn ("\n")
+                                 putStrLn "\n"
 
                                  
 process'' :: Expr -> [Program] -> IO ()
-process'' e ps = mapM_ f ps
+process'' e = mapM_ f 
 	where f p = do let (c,s) = execute e p (0,0)
 		       putStrLn (show c ++ "/" ++ show s)
 
 execute :: Expr -> Program -> (Int, Int) -> (Int, Int)
 execute e [] res               = res
-execute e ((Lhs lhs):xs) (c,s) = 
+execute e (Lhs lhs :xs) (c,s) = 
              do let lhs' = normalise lhs
                 let e' = performHalfStep e lhs'
                 case e' of
                      Nothing -> (c,s+1)
                      _       -> execute (normalise $ fromJust e') xs (c + 1, s + 1)
-execute e ((Both lhs rhs):xs)  (c,s) =
+execute e (Both lhs rhs:xs)  (c,s) =
              do let lhs' = normalise $ normalise lhs
                 let e' = performStep e (lhs', rhs)
                 case e' of
                      Nothing -> (c,s+1)
-                     _       -> if (fromJust e') == e then
+                     _       -> if fromJust e' == e then
                                    execute e xs (c, s+1)
                                 else
-                                   execute (normalise $ fromJust $ e') xs (c+1,s+1)
+                                   execute (normalise $ fromJust e') xs (c + 1, s + 1)
+                                   
 correct = processmany [ex1cor, ex2cor, ex3cor, ex4cor, ex5cor, ex6cor]
 corList = [ex1cor, ex3cor, ex4cor, ex6cor]    
 

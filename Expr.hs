@@ -5,7 +5,8 @@ module Expr where
 import Bag
 import Data.Maybe
 import Data.Typeable
-import Data.List (subsequences, nub, (\\), partition, intersperse, sortBy)
+import Data.List (subsequences, nub, (\\), partition, intercalate, sortBy)
+import Control.Arrow as A (first)
 
 -- Expression data type
 data Expr = 
@@ -36,9 +37,9 @@ isMul _ = False
 
 instance Show Expr where
     show (Con x)    = show x
-    show (Add xs)   = "(" ++ (concat $ intersperse " + " (map show (toList xs))) ++ ")"
+    show (Add xs)   = "(" ++ intercalate " + " (map show (toList xs)) ++ ")"
     show (Negate x) = "-[" ++ show x ++ "]"
-    show (Mul xs)   = "(" ++ (concat $ intersperse " * " (map show (toList xs))) ++ ")"
+    show (Mul xs)   = "(" ++ intercalate " * " (map show (toList xs)) ++ ")"
     show (Div x)    = "1/" ++ show x
     show (Double x) = show x
 
@@ -79,7 +80,7 @@ goDown (e, ze) = res e
                                  single' = map (\([e], es) -> (e,                AddI ze es)) single
                                  comb'   = map (\(e,   es) -> (Add $ fromList e, AddI ze es)) combinations
                              in comb' ++ single'
-            res (Negate (Mul xs)) = (map (\(e,ze) -> (Negate e,ze)) $ res (Mul xs)) ++ [((Mul xs), NegI ze)]
+            res (Negate (Mul xs)) = map (A.first Negate) (res (Mul xs)) ++ [(Mul xs, NegI ze)]
             res (Negate x) = [(x, NegI ze)]
             res (Mul xs)   | isMulI ze = []
                            | otherwise =
@@ -148,8 +149,8 @@ normalise1 (Con x)    | x < 0     = Negate (Con (negate x))
                       | otherwise = Con x
 normalise1 (Double x) | x < 0     = Negate (Double (negate x))
                       | otherwise = Double x
-normalise1 (Negate e) = (Negate $ normalise1 e)
-normalise1 (Div e)    = (Div $ normalise1 e)
+normalise1 (Negate e) = Negate $ normalise1 e
+normalise1 (Div e)    = Div $ normalise1 e
 --normalise1 e = e
 --
 normalise2 (Add xs) = Add $ fromList $ filter (filterExpr 0) $ map normalise2 (toList xs)
@@ -159,10 +160,10 @@ normalise2 (Negate (Mul xs))   = let mul' = normalise2 (Mul xs)
 				 in if isNeg mul'
                                       then (\(Negate mul) -> mul) mul'
                                       else Negate mul'
-normalise2 (Negate e)          = (Negate $ normalise2 e)
+normalise2 (Negate e)          = Negate $ normalise2 e
 --normalise2 (Div (Con x))       = Double (1.0 / fromIntegral x)
 --normalise2 (Div (Double x))    = depends $ 1.0 / x
-normalise2 (Div e)             = (Div $ normalise2 e)
+normalise2 (Div e)             = Div $ normalise2 e
 normalise2 e = e
 
 ntest = Add $ fromList [Con 0, Mul $ fromList [Con (-1), Con 6]]
@@ -181,15 +182,15 @@ fixPointNormalise' e (Just e')
 -- Put the multiplication into normal form
 normalMul :: [Expr] -> Expr
 normalMul xs     = f xs [] False
-	where f [] res c | c == True  = Negate (Mul $ fromList res)
+	where f [] res c | c          = Negate (Mul $ fromList res)
 	                 | otherwise  =         Mul $ fromList res
-	      f ((Negate x):xs) res c = f xs (x:res) (not c)
+	      f (Negate x : xs) res c = f xs (x:res) (not c)
 	      f (x:xs)          res c = f xs (x:res) c
 
 -- Filter the epxressions from a 
 filterExpr :: Integer -> Expr -> Bool
 filterExpr ido expr = not (((isMul expr || isAdd expr) && isEmpty expr) || (isConst expr && not (check expr)) || (ido == 1 && useless expr))
-    where check (Con x)    = (toInteger x) /= ido
+    where check (Con x)    = toInteger x /= ido
           check (Double x) = x /= fromInteger ido
           check (Negate e)    | ido == 0  = check e -- Addition
                               | otherwise = True    -- Multiplication
@@ -203,14 +204,14 @@ filterExpr ido expr = not (((isMul expr || isAdd expr) && isEmpty expr) || (isCo
 -- and an extractor (for the contained bag)) and an expression, normalises  
 -- all sub expressions, then flattens all occurences of the rule.
 -- (because who wants to write duplicate functions for Add and Mul?!?)
-normaliseAssocRule :: (Expr -> Bool) -> ((Bag Expr) -> Expr) -> (Expr -> (Bag Expr)) -> Expr -> Expr
+normaliseAssocRule :: (Expr -> Bool) -> (Bag Expr -> Expr) -> (Expr -> Bag Expr) -> Expr -> Expr
 normaliseAssocRule match construct extract e
-        | (length asList == 1) = asList !! 0   -- normalisation has already happened
-        | otherwise            = construct $ fromList allOthers
-    where asList = map normalise1 $ toList $ extract e
-          others = filter match asList
-          getList = (\ b -> toList (extract b) )
-          allOthers = (asList \\ others) ++ (concatMap getList others)
+        | length asList == 1 = head asList   -- normalisation has already happened
+        | otherwise          = construct $ fromList allOthers
+    where asList    = map normalise1 $ toList $ extract e
+          others    = filter match asList
+          getList   = toList . extract
+          allOthers = (asList \\ others) ++ concatMap getList others
 
 depends :: Double -> Expr
 depends x = if integral then Con (round x) else Double x

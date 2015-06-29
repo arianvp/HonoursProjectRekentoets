@@ -9,7 +9,7 @@ newtype Bag a = Bag (M.Map a Int)
 
 -- Constructs an empty Bag
 empty :: Bag a
-empty = Bag $ M.empty
+empty = Bag M.empty
 
 -- Constructs a Bag holding one element
 singleton :: a -> Bag a
@@ -40,8 +40,8 @@ isSingleton (Bag map) = checkVal $ M.elems map
 
 -- Removes a given element from a bag.
 -- In case the element isn't in the bag, the bag will be returned as is.
-remove' :: (Ord a) => a -> Bag a -> Bag a
-remove' a b@(Bag map) | isNothing value     = b
+remove :: (Ord a) => a -> Bag a -> Bag a
+remove a b@(Bag map) | isNothing value     = b
                      | fromJust value <= 1 = Bag $ M.delete a map
                      | otherwise           = Bag $ M.insertWith (flip (-)) a 1 map
     where value = M.lookup a map
