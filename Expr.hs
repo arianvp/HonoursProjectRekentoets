@@ -29,11 +29,20 @@ data ZExpr =
 type Ctx = (Expr, ZExpr)
 
 -- Check the type of expression
-isAdd, isMul :: Expr -> Bool
+isAdd, isMul, isConst, isNeg :: Expr -> Bool
 isAdd (Add _) = True
-isAdd _ = False
+isAdd _       = False
+
 isMul (Mul _) = True
-isMul _ = False
+isMul _       = False
+
+isNeg (Negate x) = True
+isNeg _          = False
+
+isConst (Con _)    = True
+isConst (Double _) = True
+isConst (Negate x) = isConst x
+isConst _          = False
 
 instance Show Expr where
     show (Con x)    = show x
@@ -42,7 +51,6 @@ instance Show Expr where
     show (Mul xs)   = "(" ++ intercalate " * " (map show (toList xs)) ++ ")"
     show (Div x)    = "1/" ++ show x
     show (Double x) = show x
-
 
 ----------------------------------
 --      DATASTRUCTS FUNCS       --
@@ -55,20 +63,14 @@ eval (Negate x) = negate $ eval x
 eval (Mul xs)   = product (map eval $ toList xs)
 eval (Div x)    = 1.0 / eval x
 eval (Double x) = x
-
-isConst :: Expr -> Bool
-isConst (Con _)    = True
-isConst (Double _) = True
-isConst (Negate x) = isConst x
-isConst _          = False
-
-isNeg :: Expr -> Bool
-isNeg (Negate x) = True
-isNeg _          = False
       
 -- Lift an expression to a zipper
 toCtx :: Expr -> Ctx
 toCtx e = (e, Top)
+
+depends :: Double -> Expr
+depends x = if integral then Con (round x) else Double x
+    where integral = x == fromIntegral (round x)
 
 goDown :: Ctx -> [Ctx]
 goDown (e, ze) = res e
@@ -95,17 +97,6 @@ goDown (e, ze) = res e
             isMulI (MulI _ _) = True
             isMulI _          = False
 
-
-nonEmptySubsequences         :: [a] -> [[a]]
-nonEmptySubsequences []      =  []
-nonEmptySubsequences (x:xs)  =  [x] : foldr f [] (nonEmptySubsequences xs)
-  where f ys r = ys : (x : ys) : r
-
-subs xs = partition g . map f . nonEmptySubsequences $ xs
-  where f ys = (ys, xs\\ys)
-        g ([_],_) = True
-        g _       = False
-
 goUp :: Ctx -> Maybe Ctx
 goUp (e, ze) = res ze
     where res (AddI ze' xs) | isAdd e   = Just (Add (insertList xs (comps e)), ze')
@@ -115,10 +106,6 @@ goUp (e, ze) = res ze
                             | otherwise = Just (Mul (fromList (e : xs)), ze')
           res (DivI ze')    = Just (Div e, ze')
           res (Top)         = Nothing
-          isAdd (Add _)     = True
-          isAdd _           = False
-          isMul (Mul _)     = True
-          isMul _           = False
           comps (Add xs)    = xs
           comps (Mul xs)    = xs
 
@@ -131,7 +118,20 @@ getFullExpr :: Ctx -> Expr
 getFullExpr (e, Top) = e
 getFullExpr ctx      = getFullExpr $ goUpU ctx -- Unsafely go up, should work since the top should be indicated by ZExpr Top
 
+nonEmptySubsequences         :: [a] -> [[a]]
+nonEmptySubsequences []      =  []
+nonEmptySubsequences (x:xs)  =  [x] : foldr f [] (nonEmptySubsequences xs)
+  where f ys r = ys : (x : ys) : r
 
+subs xs = partition g . map f . nonEmptySubsequences $ xs
+  where f ys = (ys, xs\\ys)
+        g ([_],_) = True
+        g _       = False
+        
+----------------------------------
+--      Normalisation           --
+----------------------------------
+        
 {-  Forces an expression into normal form
     In particular, the following things are fixed:
         - Remove double negations
@@ -140,44 +140,38 @@ getFullExpr ctx      = getFullExpr $ goUpU ctx -- Unsafely go up, should work si
         - Singleton multiplications/additions should be flattened
  -}
 normalise :: Expr -> Expr
-normalise = fixPointNormalise
+normalise = flip fixPointNormalise Nothing
 
 -- normalization pass flattening nested adds and muls
-normalise1 e@(Add _) = normaliseAssocRule isAdd Add (\ (Add b) -> b) e
-normalise1 e@(Mul _) = normaliseAssocRule isMul Mul (\ (Mul b) -> b) e
+normalise1 e@(Add _) = normaliseAssocRule isAdd Add (\(Add b) -> b) e
+normalise1 e@(Mul _) = normaliseAssocRule isMul Mul (\(Mul b) -> b) e
 normalise1 (Con x)    | x < 0     = Negate (Con (negate x))
                       | otherwise = Con x
 normalise1 (Double x) | x < 0     = Negate (Double (negate x))
                       | otherwise = Double x
 normalise1 (Negate e) = Negate $ normalise1 e
 normalise1 (Div e)    = Div $ normalise1 e
---normalise1 e = e
+
 --
-normalise2 (Add xs) = Add $ fromList $ filter (filterExpr 0) $ map normalise2 (toList xs)
-normalise2 (Mul xs) =      normalMul $ filter (filterExpr 1) $ map normalise2 (toList xs)
+normalise2 (Add xs) = Add . fromList . filter (filterExpr 0) $ map normalise2 (toList xs)
+normalise2 (Mul xs) =      normalMul . filter (filterExpr 1) $ map normalise2 (toList xs)
 normalise2 (Negate (Negate e)) = normalise2 e
-normalise2 (Negate (Mul xs))   = let mul' = normalise2 (Mul xs)
-				 in if isNeg mul'
-                                      then (\(Negate mul) -> mul) mul'
-                                      else Negate mul'
+normalise2 (Negate (Mul xs))   | isNeg mul' = (\(Negate mul) -> mul) mul'
+                               | otherwise  = Negate mul'
+    where mul' = normalise2 (Mul xs)
 normalise2 (Negate e)          = Negate $ normalise2 e
 --normalise2 (Div (Con x))       = Double (1.0 / fromIntegral x)
 --normalise2 (Div (Double x))    = depends $ 1.0 / x
 normalise2 (Div e)             = Div $ normalise2 e
 normalise2 e = e
 
-ntest = Add $ fromList [Con 0, Mul $ fromList [Con (-1), Con 6]]
-
-fixPointNormalise :: Expr -> Expr
-fixPointNormalise = flip fixPointNormalise' Nothing
-
-fixPointNormalise' :: Expr -> Maybe Expr -> Expr
-fixPointNormalise' e Nothing = let k = normalise2 . normalise1 $ e
-                              in fixPointNormalise' k (Just e)
-fixPointNormalise' e (Just e')
+fixPointNormalise :: Expr -> Maybe Expr -> Expr
+fixPointNormalise e Nothing = let k = normalise2 . normalise1 $ e
+                              in fixPointNormalise k (Just e)
+fixPointNormalise e (Just e')
   | e == e'   = e
   | otherwise = let k = normalise2 . normalise1 $ e
-                in fixPointNormalise' k (Just e)
+                in fixPointNormalise k (Just e)
 
 -- Put the multiplication into normal form
 normalMul :: [Expr] -> Expr
@@ -208,11 +202,9 @@ normaliseAssocRule :: (Expr -> Bool) -> (Bag Expr -> Expr) -> (Expr -> Bag Expr)
 normaliseAssocRule match construct extract e
         | length asList == 1 = head asList   -- normalisation has already happened
         | otherwise          = construct $ fromList allOthers
-    where asList    = map normalise1 $ toList $ extract e
-          others    = filter match asList
-          getList   = toList . extract
-          allOthers = (asList \\ others) ++ concatMap getList others
+    where asList            = map normalise1 . toList $ extract e
+          (matches, others) = partition match asList
+          getList           = toList . extract
+          allOthers         = others ++ concatMap getList matches
 
-depends :: Double -> Expr
-depends x = if integral then Con (round x) else Double x
-    where integral = x == fromIntegral (round x)
+

@@ -45,7 +45,9 @@ iDistR (Add addies) = do
   -- ???
   -- profit!
   where listAddies = toList addies
- -}     
+ -}   
+-- ?? waar komt die get vandaan?
+ 
 combinations :: Int -> [a] -> [[a]]
 combinations k xs = combinations' (length xs) k xs
 	where combinations' n k' [] = []
