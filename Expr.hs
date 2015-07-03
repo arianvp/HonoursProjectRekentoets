@@ -2,11 +2,12 @@
 
 module Expr where
 
-import Bag
+import Bag (Bag)
+import qualified Bag as B
 import Data.Maybe
 import Data.Typeable
 import Data.List (subsequences, nub, (\\), partition, intercalate, sortBy)
-import Control.Arrow as A (first)
+import Control.Arrow as A (first, (***))
 
 -- Expression data type
 data Expr = 
@@ -19,9 +20,9 @@ data Expr =
      deriving (Eq, Read, Ord, Typeable)
 -- Zipper data type
 data ZExpr = 
-        AddI   ZExpr [Expr]
+         AddI   ZExpr (Bag Expr)
        | NegI   ZExpr
-       | MulI   ZExpr [Expr]
+       | MulI   ZExpr (Bag Expr)
        | DivI   ZExpr
        | Top
       deriving (Eq, Show, Read)
@@ -46,9 +47,9 @@ isConst _          = False
 
 instance Show Expr where
     show (Con x)    = show x
-    show (Add xs)   = "(" ++ intercalate " + " (map show (toList xs)) ++ ")"
+    show (Add xs)   = "(" ++ intercalate " + " (map show (B.toList xs)) ++ ")"
     show (Negate x) = "-[" ++ show x ++ "]"
-    show (Mul xs)   = "(" ++ intercalate " * " (map show (toList xs)) ++ ")"
+    show (Mul xs)   = "(" ++ intercalate " * " (map show (B.toList xs)) ++ ")"
     show (Div x)    = "1/" ++ show x
     show (Double x) = show x
 
@@ -58,9 +59,9 @@ instance Show Expr where
 -- Evaluate the expression.
 eval :: Expr -> Double
 eval (Con x)    = fromIntegral x
-eval (Add xs)   = sum (map eval $ toList xs)
+eval (Add xs)   = B.fold (\ a b -> eval a + b) 0 xs
 eval (Negate x) = negate $ eval x
-eval (Mul xs)   = product (map eval $ toList xs)
+eval (Mul xs)   = B.fold (\ a b -> eval a * b) 1 xs
 eval (Div x)    = 1.0 / eval x
 eval (Double x) = x
       
@@ -78,17 +79,17 @@ goDown (e, ze) = res e
             res :: Expr -> [Ctx]
             res (Add xs)   | isAddI ze = []
                            | otherwise =
-                             let (single, combinations) = subs $ toList xs
-                                 single' = map (\([e], es) -> (e,                AddI ze es)) single
-                                 comb'   = map (\(e,   es) -> (Add $ fromList e, AddI ze es)) combinations
+                             let (single, combinations) = subs' xs
+                                 single' = map (B.headL e A.*** AddI ze) single
+                                 comb'   = map (Add A.*** AddI ze) combinations
                              in comb' ++ single'
             res (Negate (Mul xs)) = map (A.first Negate) (res (Mul xs)) ++ [(Mul xs, NegI ze)]
             res (Negate x) = [(x, NegI ze)]
             res (Mul xs)   | isMulI ze = []
                            | otherwise =
-                             let (single, combinations) = subs $ toList xs
-                                 single' = map (\([e], es) -> (e,                MulI ze es)) single
-                                 comb'   = map (\(e,   es) -> (Mul $ fromList e, MulI ze es)) combinations
+                             let (single, combinations) = subs' xs
+                                 single' = map (B.headL A.*** MulI ze) single
+                                 comb'   = map (Mul     A.*** MulI ze) combinations
                              in comb' ++ single' 
             res (Div x)    = [(x, DivI ze)]
             res _          = []
@@ -99,11 +100,11 @@ goDown (e, ze) = res e
 
 goUp :: Ctx -> Maybe Ctx
 goUp (e, ze) = res ze
-    where res (AddI ze' xs) | isAdd e   = Just (Add (insertList xs (comps e)), ze')
-                            | otherwise = Just (Add (fromList (e : xs)), ze')
+    where res (AddI ze' xs) | isAdd e   = Just (Add (B.union xs (comps e)), ze')
+                            | otherwise = Just (Add (B.insert e xs), ze')
           res (NegI ze')    = Just (Negate e, ze')
-          res (MulI ze' xs) | isMul e   = Just (Mul (insertList xs (comps e)), ze')
-                            | otherwise = Just (Mul (fromList (e : xs)), ze')
+          res (MulI ze' xs) | isMul e   = Just (Mul (B.union xs (comps e)), ze')
+                            | otherwise = Just (Mul (B.insert e xs), ze')
           res (DivI ze')    = Just (Div e, ze')
           res (Top)         = Nothing
           comps (Add xs)    = xs
@@ -127,7 +128,16 @@ subs xs = partition g . map f . nonEmptySubsequences $ xs
   where f ys = (ys, xs\\ys)
         g ([_],_) = True
         g _       = False
-        
+
+subs' :: Ord a => Bag a -> ([(Bag a, Bag a)], [(Bag a, Bag a)])      
+subs' bag | B.null bag = ([],[])
+          | otherwise  = partition (\(a,b) -> B.isSingleton a) $ f xs bag
+    where xs           = B.toList bag
+          f [x] bag    = [(B.singleton x, B.delete x bag)]
+          f (x:xs) bag = let bag' = B.delete x bag
+                             subs = f xs bag'
+                             in (B.singleton x, bag') : concatMap (\(a,b) -> [(B.insert x a, b), (a, B.insert x b)]) subs
+                             
 ----------------------------------
 --      Normalisation           --
 ----------------------------------
@@ -153,8 +163,8 @@ normalise1 (Negate e) = Negate $ normalise1 e
 normalise1 (Div e)    = Div $ normalise1 e
 
 --
-normalise2 (Add xs) = Add . fromList . filter (filterExpr 0) $ map normalise2 (toList xs)
-normalise2 (Mul xs) =      normalMul . filter (filterExpr 1) $ map normalise2 (toList xs)
+normalise2 (Add xs) = Add       . B.filter (filterExpr 0) $ B.map normalise2 xs
+normalise2 (Mul xs) = normalMul . B.filter (filterExpr 1) $ B.map normalise2 xs
 normalise2 (Negate (Negate e)) = normalise2 e
 normalise2 (Negate (Mul xs))   | isNeg mul' = (\(Negate mul) -> mul) mul'
                                | otherwise  = Negate mul'
@@ -173,13 +183,14 @@ fixPointNormalise e (Just e')
   | otherwise = let k = normalise2 . normalise1 $ e
                 in fixPointNormalise k (Just e)
 
--- Put the multiplication into normal form
-normalMul :: [Expr] -> Expr
-normalMul xs     = f xs [] False
-	where f [] res c | c          = Negate (Mul $ fromList res)
-	                 | otherwise  =         Mul $ fromList res
-	      f (Negate x : xs) res c = f xs (x:res) (not c)
-	      f (x:xs)          res c = f xs (x:res) c
+-- Put the multiplication into normal form (negative or positive multiplication)
+normalMul :: Bag Expr -> Expr
+normalMul xs | even $ count xs = Mul xs'
+             | otherwise       = Negate $ Mul xs'
+    where g (Negate x) = x
+          g x          = x
+          xs'          = B.map g xs
+          count        = B.size . B.filter isNeg
 
 -- Filter the epxressions from a 
 filterExpr :: Integer -> Expr -> Bool
@@ -188,8 +199,8 @@ filterExpr ido expr = not (((isMul expr || isAdd expr) && isEmpty expr) || (isCo
           check (Double x) = x /= fromInteger ido
           check (Negate e)    | ido == 0  = check e -- Addition
                               | otherwise = True    -- Multiplication
-          isEmpty (Add xs) = null $ toList xs
-          isEmpty (Mul xs) = null $ toList xs
+          isEmpty (Add xs) = B.null xs
+          isEmpty (Mul xs) = B.null xs
           isEmpty _        = False
           useless (Div (Con 1)) = True
           useless _        = False
@@ -200,11 +211,10 @@ filterExpr ido expr = not (((isMul expr || isAdd expr) && isEmpty expr) || (isCo
 -- (because who wants to write duplicate functions for Add and Mul?!?)
 normaliseAssocRule :: (Expr -> Bool) -> (Bag Expr -> Expr) -> (Expr -> Bag Expr) -> Expr -> Expr
 normaliseAssocRule match construct extract e
-        | length asList == 1 = head asList   -- normalisation has already happened
-        | otherwise          = construct $ fromList allOthers
-    where asList            = map normalise1 . toList $ extract e
-          (matches, others) = partition match asList
-          getList           = toList . extract
-          allOthers         = others ++ concatMap getList matches
+        | B.size asList == 1 = head $ B.toList asList   -- normalisation has already happened
+        | otherwise        = construct allOthers
+    where asList            = B.map normalise1 $ extract e
+          (matches, others) = B.partition match asList
+          allOthers         = others `B.union` B.unionsMap extract matches
 
 

@@ -1,6 +1,5 @@
 module SubExpr where
 
-import Bag
 import Expr
 import Rule
 import Data.Maybe

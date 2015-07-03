@@ -1,25 +1,26 @@
 module Rule where
 
-import Bag
+import Bag (Bag)
+import qualified Bag as B
 import Expr
 import Data.Maybe
-import Data.List (subsequences, nub, (\\), partition, intersperse, sortBy, intersect)
+import Data.List (subsequences, nub, (\\), partition, intersperse, sortBy)
 
 type Rule = Expr -> [Expr]
 distR :: Rule
-distR (Mul multies)   = map convert $ concatMap dist_optos addies
-    where addies           = filter (\x -> isAdd x|| isNegAdd x) $ toListU multies
-          othas e          = toList (remove e multies)
-          dist_optos e     = map (\opt -> (opt, e)) $ othas e
-          convert (mul, add@(Add xs)) = 
-                    let distedAdd = Add (fromList $ map (\x -> Mul $ fromList [mul, x]) $ toList xs)
-                    in Mul $ fromList (distedAdd : (toList multies \\ [mul, add]))
-          convert (mul, e@(Negate add@(Add xs))) = 
-                    let distedAdd = Add (fromList $ map (\x -> Mul $ fromList [mul, x]) $ toList xs)
-		    in Negate $ Mul $ fromList (distedAdd : (toList multies \\ [mul, e]))
-          isNegAdd (Negate (Add _)) = True
-          isNegAdd _                = False
-distR _         = []
+distR (Mul multies) = concatMap (uncurry convertm) . addies $ B.toList multies
+    where addies (x:xs) | isAddie x = (x, xs) : xs'
+                        | otherwise = xs'
+            where xs' = map (Control.Arrow.second (:x)) $ addies xs
+          convertm a = map (convert a)
+          convert e@(Add xs) mul = 
+            Mul . B.insert (distedAdd mul xs) $ B.deleteList [mul, e] multies
+          convert e@(Negate add@(Add xs)) mul = let Mul xs = convert add mul
+            in Negate . Mul $ B.delete e xs
+          distedAdd mul = Add . B.map (\x -> Mul $ B.fromList [mul, x])
+          isAddie (Negate x) = isAdd x
+          isAddie x          = isAdd x
+distR _             = []
 
 
 {-
@@ -60,13 +61,13 @@ combinations k xs = combinations' (length xs) k xs
 evalR :: Rule
 evalR       = f
     where f (Add xs) | length xs' == 2 = compute sum $ candids xs'
-                     | otherwise       = map (\x -> Add  $ fromList 
+                     | otherwise       = map (\x -> Add  $ B.fromList 
                             ((depends . sum     $ map eval x) : (xs' \\ x))) $ candids xs'
-            where xs'= toList xs
+            where xs'= B.toList xs
           f (Mul xs) | length xs' == 2 = compute product $ candids xs'
-                     | otherwise       = map (\x -> Mul  $ fromList 
+                     | otherwise       = map (\x -> Mul  $ B.fromList 
                             ((depends . product $ map eval x) : (xs' \\ x))) $ candids xs'
-            where xs'= toList xs
+            where xs'= B.toList xs
           f _                                    = []
           compute :: ([Double] -> Double) -> [[Expr]] -> [Expr]
           compute g = map (depends . g . map eval)
@@ -75,12 +76,12 @@ evalR       = f
 
 neg2subR :: Rule
 neg2subR (Add xs)          = [Negate (Add flipped) | any isNeg xs']
-    where flipped          = fromList $ map flipE xs'
+    where flipped          = B.fromList $ map flipE xs'
           flipE (Negate x) = x
           flipE x          = Negate x
-          xs'              = toList xs
+          xs'              = B.toList xs
 neg2subR (Negate (Add xs)) = [Add flipped]
-    where flipped          = fromList $ map flipE $ toList xs
+    where flipped          = B.fromList . map flipE $ B.toList xs
           flipE (Negate x) = x
           flipE x          = Negate x
 neg2subR _                 = []
@@ -90,7 +91,7 @@ fracR (Div (Div x)) = [x]
 fracR (Div x) | isConst x                  = if isNeg x then [Negate $ Double (1 / eval x)] else [Double (1 / eval x)]
 	          | otherwise                  = []
 fracR (Double x)        
-            | nice && abs (n `div` diver) /= 1 = [Mul $ fromList [Con (n `div` diver), Double (fromIntegral diver / 10000)], Div $ Mul $ fromList [Con (10000 `div` diver), Div $ Con (n `div` diver)]]
+            | nice && abs (n `div` diver) /= 1 = [Mul $ B.fromList [Con (n `div` diver), Double (fromIntegral diver / 10000)], Div $ Mul $ B.fromList [Con (10000 `div` diver), Div $ Con (n `div` diver)]]
 	        | nice                             = [Div $ Con (10000 `div` diver)]
             | otherwise                        = []
     where n       = round (x * 10000)
