@@ -16,7 +16,7 @@ distR (Mul multies)   = map convert $ concatMap dist_optos addies
                     in Mul $ fromList (distedAdd : (toList multies \\ [mul, add]))
           convert (mul, e@(Negate add@(Add xs))) = 
                     let distedAdd = Add (fromList $ map (\x -> Mul $ fromList [mul, x]) $ toList xs)
-		    in Negate $ Mul $ fromList (distedAdd : (toList multies \\ [mul, e]))
+                    in  Negate $ Mul $ fromList (distedAdd : (toList multies \\ [mul, e]))
           isNegAdd (Negate (Add _)) = True
           isNegAdd _                = False
 distR _         = []
@@ -50,12 +50,12 @@ iDistR (Add addies) = do
  
 combinations :: Int -> [a] -> [[a]]
 combinations k xs = combinations' (length xs) k xs
-	where combinations' n k' [] = []
-	      combinations' n k' l@(y:ys)
-		| k' == 0   = [[]]
-		| k' >= n   = [l]
-		| null l    = []
-		| otherwise = map (y :) (combinations' (n - 1) (k' - 1) ys) ++ combinations' (n - 1) k' ys 
+    where combinations' n k' [] = []
+          combinations' n k' l@(y:ys)
+              | k' == 0   = [[]]
+              | k' >= n   = [l]
+              | null l    = []
+              | otherwise = map (y :) (combinations' (n - 1) (k' - 1) ys) ++ combinations' (n - 1) k' ys 
 
 evalR :: Rule
 evalR       = f
@@ -71,7 +71,7 @@ evalR       = f
           compute :: ([Double] -> Double) -> [[Expr]] -> [Expr]
           compute g = map (depends . g . map eval)
           candids   = filter ((==2) . length) . combinations 2 . filter isConst
-          
+
 
 neg2subR :: Rule
 neg2subR (Add xs)          = [Negate (Add flipped) | any isNeg xs']
@@ -88,17 +88,17 @@ neg2subR _                 = []
 fracR :: Rule
 fracR (Div (Div x)) = [x]
 fracR (Div x) | isConst x                  = if isNeg x then [Negate $ Double (1 / eval x)] else [Double (1 / eval x)]
-	          | otherwise                  = []
-fracR (Double x)        
+              | otherwise                  = []
+fracR (Double x)
             | nice && abs (n `div` diver) /= 1 = [Mul $ fromList [Con (n `div` diver), Double (fromIntegral diver / 10000)], Div $ Mul $ fromList [Con (10000 `div` diver), Div $ Con (n `div` diver)]]
-	        | nice                             = [Div $ Con (10000 `div` diver)]
+            | nice                             = [Div $ Con (10000 `div` diver)]
             | otherwise                        = []
     where n       = round (x * 10000)
           nice    = fromIntegral n / 10000 == x
           diver   = gcd 10000 (abs n)
           flipped = x < 0
 fracR (Negate (Double x)) | null xs = []
-                          | otherwise = [Negate (head xs)]            
+                          | otherwise = [Negate (head xs)]
     where xs = fracR (Double x)
 fracR _                  = []
 

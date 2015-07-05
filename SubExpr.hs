@@ -9,8 +9,8 @@ import qualified Data.Set as Set
 
 subExpr :: Ctx -> [Ctx]
 subExpr ctx = downs ++ concatMap subExpr downs
-   where downs     = goDown ctx
-         
+    where downs     = goDown ctx
+
 
 -- Computes the top-level expressions possible per step without duplicates.
 subExprS :: [Rule] -> Set.Set Expr -> [Expr] -> [[Expr]]
@@ -22,7 +22,7 @@ subExprS rs set xs     = let newSet = Set.union nextLayer set
           nextLayer       = Set.difference (Set.fromList (map (normalise . getFullExpr) transformedExpr)) set
           nextLayerL      = Set.toList nextLayer
           ctxXS           = map toCtx xs   
-          
+
 subExprQ :: [Rule] -> [Expr] -> [[Expr]]
 subExprQ rs []     = []
 subExprQ rs xs     = xs : subExprQ rs nextLayer
@@ -48,12 +48,12 @@ findCtx expr lhs = sortBy (\a b -> compare (nicenessCtx a expr) (nicenessCtx b e
 
 nicenessCtx :: Ctx -> Expr -> Int
 nicenessCtx expr org = length $ rawTermsOrg \\ rawTermsExpr
-	where rawTermsOrg  = filter (\e -> not (isConst e && eval e == 1)) $ rawTerms org
-	      rawTermsExpr = filter (\e -> not (isConst e && eval e == 1)) $ rawTerms $ getFullExpr expr
-         
+    where rawTermsOrg  = filter (\e -> not (isConst e && eval e == 1)) $ rawTerms org
+          rawTermsExpr = filter (\e -> not (isConst e && eval e == 1)) $ rawTerms $ getFullExpr expr
+
 rawTerms :: Expr -> [Expr]
 rawTerms expr = map fst $ filter (\(e,ze) -> isConst e && not (isNeg e)) $ subExpr (toCtx expr)
-         
+
 type Equal = (Expr, Expr)
 performStep :: Expr -> Equal -> Maybe Expr
 performStep e (lhs, rhs) | checkEqual = case ctx of
@@ -69,3 +69,4 @@ performHalfStep e lhs = case ctx of
                 Nothing -> Nothing
                 _       -> Just $ getFullExpr $ fromJust ctx
     where ctx        = let ctxs = findCtx e lhs in if null ctxs then Nothing else Just $ head ctxs
+

@@ -13,14 +13,13 @@ import qualified Data.Set as Set
 ------- DataType
 -------------------------------------------------------------------------------
 -- Expression data type
-data Expr = 
-        Con    Int         -- Positive only
-      | Add    (Bag Expr)  -- Addition of the elements
-      | Negate Expr        -- Unary negation
-      | Mul    (Bag Expr)  -- Multiplication of the elements
-      | Div    Expr        -- Unary division
-      | Double Double      -- Positive only
-     deriving (Eq, Read, Ord, Typeable)
+data Expr = Con    Int         -- Positive only
+          | Add    (Bag Expr)  -- Addition of the elements
+          | Negate Expr        -- Unary negation
+          | Mul    (Bag Expr)  -- Multiplication of the elements
+          | Div    Expr        -- Unary division
+          | Double Double      -- Positive only
+          deriving (Eq, Read, Ord, Typeable)
 
 instance Show Expr where
     show (Con x)    = show x
@@ -66,7 +65,7 @@ instance IsTerm Expr where
     toTerm (Mul xs)   = TCon mulSymbol $ map toTerm $ toList xs
     toTerm (Div x)    = unary divSymbol $ toTerm x
     toTerm (Double x) = TFloat x
-    
+
     fromTerm (TNum x)   = return (Con (fromInteger x))
     fromTerm (TFloat x) = return (Double x)
     fromTerm term       = fromTermWith f term
@@ -76,6 +75,7 @@ instance IsTerm Expr where
             f s xs  | s == addSymbol    = return (Add $ fromList xs)
             f s xs  | s == mulSymbol    = return (Mul $ fromList xs)
             f _ _ = fail "invalid expression"
+
 -------------------------------------------------------------------------------
 ----------------------------------
 --      DATASTRUCTS FUNCS       --
@@ -88,7 +88,7 @@ eval (Negate x) = negate $ eval x
 eval (Mul xs)   = product (map eval $ toList xs)
 eval (Div x)    = 1.0 / eval x
 eval (Double x) = x
-   
+
 depends :: Double -> Expr
 depends x = if integral then Con (round x) else Double x
     where integral = x == fromIntegral (round x)
@@ -106,19 +106,19 @@ distR' (Mul multies)   = map convert $ concatMap dist_optos (addies ++ negaddies
                     in Mul $ fromList (distedAdd : (toList multies \\ [mul, add]))
           convert (mul, e@(Negate add@(Add xs))) = 
                     let distedAdd = Add (fromList $ map (\x -> Mul $ fromList [mul, x]) $ toList xs)
-		    in Negate $ Mul $ fromList (distedAdd : (toList multies \\ [mul, e]))
+                    in  Negate $ Mul $ fromList (distedAdd : (toList multies \\ [mul, e]))
           isNegAdd (Negate (Add _)) = True
           isNegAdd _                = False
 distR' _         = []
 
 combinations :: Int -> [a] -> [[a]]
 combinations k xs = combinations' (length xs) k xs
-	where combinations' n k' [] = []
-	      combinations' n k' l@(y:ys)
-		| k' == 0   = [[]]
-		| k' >= n   = [l]
-		| null l    = []
-		| otherwise = map (y :) (combinations' (n - 1) (k' - 1) ys) ++ combinations' (n - 1) k' ys 
+    where combinations' n k' [] = []
+          combinations' n k' l@(y:ys)
+              | k' == 0   = [[]]
+              | k' >= n   = [l]
+              | null l    = []
+              | otherwise = map (y :) (combinations' (n - 1) (k' - 1) ys) ++ combinations' (n - 1) k' ys 
 
 evalR :: Rule Expr
 evalR = describe "Evaluate expression" $ ruleList "eval" evalR'
@@ -155,10 +155,10 @@ fracR = describe "Frac" $ ruleList "frac" fracR'
 fracR' :: Expr -> [Expr]
 fracR' (Div (Div x)) = [x]
 fracR' (Div x) | isConst x                  = if isNeg x then [Negate $ Double $ (1 / eval x)] else [Double $ (1 / eval x)]
-	      | otherwise                  = []
-fracR' (Double x)        
+               | otherwise                  = []
+fracR' (Double x)
             | nice && abs (n `div` diver) /= 1 = [Mul $ fromList [Con (n `div` diver), Double (fromIntegral diver / 10000)], Div $ Mul $ fromList [Con (10000 `div` diver), Div $ Con (n `div` diver)]]
-	    | nice                             = [Div $ Con (10000 `div` diver)]
+            | nice                             = [Div $ Con (10000 `div` diver)]
             | otherwise                        = []
     where n       = round (x * 10000)
           nice    = fromIntegral n / 10000 == x

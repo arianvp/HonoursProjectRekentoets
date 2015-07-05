@@ -9,22 +9,20 @@ import Data.List (subsequences, nub, (\\), partition, intercalate, sortBy)
 import Control.Arrow as A (first)
 
 -- Expression data type
-data Expr = 
-        Con    Int         -- Positive only
-      | Add    (Bag Expr)  -- Addition of the elements
-      | Negate Expr        -- Unary negation
-      | Mul    (Bag Expr)  -- Multiplication of the elements
-      | Div    Expr        -- Unary division
-      | Double Double      -- Positive only
-     deriving (Eq, Read, Ord, Typeable)
+data Expr = Con    Int         -- Positive only
+          | Add    (Bag Expr)  -- Addition of the elements
+          | Negate Expr        -- Unary negation
+          | Mul    (Bag Expr)  -- Multiplication of the elements
+          | Div    Expr        -- Unary division
+          | Double Double      -- Positive only
+          deriving (Eq, Read, Ord, Typeable)
 -- Zipper data type
-data ZExpr = 
-        AddI   ZExpr [Expr]
-       | NegI   ZExpr
-       | MulI   ZExpr [Expr]
-       | DivI   ZExpr
-       | Top
-      deriving (Eq, Show, Read)
+data ZExpr = AddI   ZExpr [Expr]
+           | NegI   ZExpr
+           | MulI   ZExpr [Expr]
+           | DivI   ZExpr
+           | Top
+           deriving (Eq, Show, Read)
 -- Location consisting out of an (sub)expression and ZExpr.
 type Ctx = (Expr, ZExpr)
 
@@ -74,8 +72,7 @@ depends x = if integral then Con (round x) else Double x
 
 goDown :: Ctx -> [Ctx]
 goDown (e, ze) = res e
-    where 
-            res :: Expr -> [Ctx]
+    where   res :: Expr -> [Ctx]
             res (Add xs)   | isAddI ze = []
                            | otherwise =
                              let (single, combinations) = subs $ toList xs
@@ -127,11 +124,11 @@ subs xs = partition g . map f . nonEmptySubsequences $ xs
   where f ys = (ys, xs\\ys)
         g ([_],_) = True
         g _       = False
-        
+
 ----------------------------------
 --      Normalisation           --
 ----------------------------------
-        
+
 {-  Forces an expression into normal form
     In particular, the following things are fixed:
         - Remove double negations
@@ -152,7 +149,7 @@ normalise1 (Double x) | x < 0     = Negate (Double (negate x))
 normalise1 (Negate e) = Negate $ normalise1 e
 normalise1 (Div e)    = Div $ normalise1 e
 
---
+
 normalise2 (Add xs) = Add . fromList . filter (filterExpr 0) $ map normalise2 (toList xs)
 normalise2 (Mul xs) =      normalMul . filter (filterExpr 1) $ map normalise2 (toList xs)
 normalise2 (Negate (Negate e)) = normalise2 e
@@ -176,10 +173,10 @@ fixPointNormalise e (Just e')
 -- Put the multiplication into normal form
 normalMul :: [Expr] -> Expr
 normalMul xs     = f xs [] False
-	where f [] res c | c          = Negate (Mul $ fromList res)
-	                 | otherwise  =         Mul $ fromList res
-	      f (Negate x : xs) res c = f xs (x:res) (not c)
-	      f (x:xs)          res c = f xs (x:res) c
+    where f [] res c | c          = Negate (Mul $ fromList res)
+                     | otherwise  =         Mul $ fromList res
+          f (Negate x : xs) res c = f xs (x:res) (not c)
+          f (x:xs)          res c = f xs (x:res) c
 
 -- Filter the epxressions from a 
 filterExpr :: Integer -> Expr -> Bool
@@ -200,11 +197,10 @@ filterExpr ido expr = not (((isMul expr || isAdd expr) && isEmpty expr) || (isCo
 -- (because who wants to write duplicate functions for Add and Mul?!?)
 normaliseAssocRule :: (Expr -> Bool) -> (Bag Expr -> Expr) -> (Expr -> Bag Expr) -> Expr -> Expr
 normaliseAssocRule match construct extract e
-        | length asList == 1 = head asList   -- normalisation has already happened
-        | otherwise          = construct $ fromList allOthers
+    | length asList == 1 = head asList   -- normalisation has already happened
+    | otherwise          = construct $ fromList allOthers
     where asList            = map normalise1 . toList $ extract e
           (matches, others) = partition match asList
           getList           = toList . extract
           allOthers         = others ++ concatMap getList matches
-
 

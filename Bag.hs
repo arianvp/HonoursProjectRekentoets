@@ -5,7 +5,7 @@ import Data.Maybe
 import qualified Data.Map as M
 
 newtype Bag a = Bag (M.Map a Int)
-    deriving (Show,Read,Ord,Eq)
+              deriving (Show,Read,Ord,Eq)
 
 -- Constructs an empty Bag
 empty :: Bag a
@@ -45,7 +45,7 @@ remove a b@(Bag map) | isNothing value     = b
                      | fromJust value <= 1 = Bag $ M.delete a map
                      | otherwise           = Bag $ M.insertWith (flip (-)) a 1 map
     where value = M.lookup a map
-    
+
 -- Constructs a bag from a list of elements.
 fromList :: (Ord a) => [a] -> Bag a
 fromList = foldl f empty
@@ -56,6 +56,7 @@ fromList = foldl f empty
 toList :: Bag a -> [a]
 toList (Bag m) = concatMap f $ M.toList m
     where f (a,b) = replicate b a
+
 
 -- Converts a Bag into a list without repeating any elements
 toListU :: Bag a -> [a]
